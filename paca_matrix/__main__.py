@@ -119,24 +119,34 @@ class CliOpts:
         )
         parser.add_argument(
             "--homeserver",
+            required=False,
             action=EnvAction,
             env_var="PACAMATRIX_HOMESERVER",
             help="Matrix homeserver URL (env: PACAMATRIX_HOMESERVER)",
         )
         parser.add_argument(
             "--user-id",
+            required=False,
             action=EnvAction,
             env_var="PACAMATRIX_USER_ID",
             help="Matrix user ID (env: PACAMATRIX_USER_ID)",
         )
         parser.add_argument(
             "--access-token",
+            required=False,
             action=EnvAction,
             env_var="PACAMATRIX_ACCESS_TOKEN",
             help="Matrix access token (env: PACAMATRIX_ACCESS_TOKEN)",
         )
 
         args = parser.parse_args()
+
+        if not args.login and not (
+            args.homeserver and args.user_id and args.access_token
+        ):
+            parser.error(
+                "--homeserver, --user-id, and --access-token are required when not using --login"
+            )
 
         return CliOpts(
             verbose=args.verbose is not None,
