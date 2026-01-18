@@ -57,10 +57,10 @@ paca --homeserver https://matrix.org --user-id @bot:example.com --access-token Y
 Create a `.env` file or set environment variables:
 
 ```bash
-export PACAMATRIX_HOMESERVER=https://matrix.org
-export PACAMATRIX_USER_ID=@bot:example.com
-export PACAMATRIX_ACCESS_TOKEN=YOUR_TOKEN
-export PACAMATRIX_VERBOSE=1  # Optional: Enable debug logging
+PACAMATRIX_HOMESERVER=https://matrix.org
+PACAMATRIX_USER_ID=@bot:example.com
+PACAMATRIX_ACCESS_TOKEN=YOUR_TOKEN
+PACAMATRIX_VERBOSE=1  # Optional: Enable debug logging
 ```
 
 Then run:

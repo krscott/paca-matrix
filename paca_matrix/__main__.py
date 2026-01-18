@@ -64,7 +64,8 @@ async def handle_login() -> None:
             return
 
         env_path = Path(".env")
-        env_content = f"""PACAMATRIX_HOMESERVER={homeserver}
+        env_content = f"""
+PACAMATRIX_HOMESERVER={homeserver}
 PACAMATRIX_USER_ID={response.user_id}
 PACAMATRIX_DEVICE_ID={response.device_id}
 PACAMATRIX_ACCESS_TOKEN={response.access_token}
