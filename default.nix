@@ -3,6 +3,7 @@
   buildPythonApplication,
   lib,
   python-dotenv,
+  matrix-nio,
   setuptools,
   pytest,
 }:
@@ -15,7 +16,7 @@ buildPythonApplication {
 
   propagatedBuildInputs = [
     python-dotenv
-    python3Packages.matrix-nio
+    matrix-nio
   ];
 
   nativeCheckInputs = [ pytest ];
