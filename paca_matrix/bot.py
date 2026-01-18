@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from nio import (
@@ -64,8 +65,11 @@ class EchoBot:
             RoomMessageText,
         )
 
-        while True:
-            await self.client.sync()
+        try:
+            while True:
+                await self.client.sync()
+        except (KeyboardInterrupt, asyncio.CancelledError):
+            raise
 
     async def stop(self) -> None:
         log.info("Stopping bot...")

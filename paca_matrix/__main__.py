@@ -29,7 +29,10 @@ def main() -> None:
     if opts.login:
         asyncio.run(handle_login())
     else:
-        asyncio.run(run_bot(opts))
+        try:
+            asyncio.run(run_bot(opts))
+        except KeyboardInterrupt:
+            pass
 
 
 async def handle_login() -> None:
