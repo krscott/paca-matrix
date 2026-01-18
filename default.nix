@@ -6,6 +6,7 @@
   matrix-nio,
   setuptools,
   pytest,
+  pytest-asyncio,
 }:
 buildPythonApplication {
   name = "paca-matrix";
@@ -19,7 +20,10 @@ buildPythonApplication {
     matrix-nio
   ];
 
-  nativeCheckInputs = [ pytest ];
+  nativeCheckInputs = [
+    pytest
+    pytest-asyncio
+  ];
 
   checkPhase = ''
     pytest
