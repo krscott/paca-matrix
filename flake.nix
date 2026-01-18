@@ -33,6 +33,8 @@
             black
             isort
             mypy
+            pytest
+            pytest-asyncio
           ]
           ++ paca-matrix.propagatedBuildInputs
           ++ paca-matrix.nativeBuildInputs
