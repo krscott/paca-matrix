@@ -1,13 +1,8 @@
 import asyncio
 import logging
 
-from nio import (
-    AsyncClient,
-    AsyncClientConfig,
-    MatrixRoom,  # type: ignore
-    RoomMessageText,
-    SyncResponse,
-)
+from nio import MatrixRoom  # type: ignore
+from nio import AsyncClient, AsyncClientConfig, RoomMessageText, SyncResponse
 
 log = logging.getLogger(__name__)
 
