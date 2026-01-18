@@ -63,6 +63,7 @@ async def handle_login() -> None:
         env_path = Path(".env")
         env_content = f"""PACAMATRIX_HOMESERVER={homeserver}
 PACAMATRIX_USER_ID={response.user_id}
+PACAMATRIX_DEVICE_ID={response.device_id}
 PACAMATRIX_ACCESS_TOKEN={response.access_token}
 """
 
@@ -76,12 +77,19 @@ PACAMATRIX_ACCESS_TOKEN={response.access_token}
 
 
 async def run_bot(opts: "CliOpts") -> None:
-    if not opts.homeserver or not opts.user_id or not opts.access_token:
-        log.error("Bot requires --homeserver, --user-id, and --access-token")
+    if (
+        not opts.homeserver
+        or not opts.user_id
+        or not opts.access_token
+        or not opts.device_id
+    ):
+        log.error(
+            "Bot requires --homeserver, --user-id, --device-id, and --access-token"
+        )
         log.info("Or use --login to set up credentials")
         return
 
-    bot = EchoBot(opts.homeserver, opts.user_id, opts.access_token)
+    bot = EchoBot(opts.homeserver, opts.user_id, opts.device_id, opts.access_token)
 
     try:
         await bot.run_forever()
@@ -97,6 +105,7 @@ class CliOpts:
     login: bool
     homeserver: str | None
     user_id: str | None
+    device_id: str | None
     access_token: str | None
 
     @staticmethod
@@ -137,14 +146,21 @@ class CliOpts:
             env_var="PACAMATRIX_ACCESS_TOKEN",
             help="Matrix access token (env: PACAMATRIX_ACCESS_TOKEN)",
         )
+        parser.add_argument(
+            "--device-id",
+            required=False,
+            action=EnvAction,
+            env_var="PACAMATRIX_DEVICE_ID",
+            help="Matrix device ID (env: PACAMATRIX_DEVICE_ID)",
+        )
 
         args = parser.parse_args()
 
         if not args.login and not (
-            args.homeserver and args.user_id and args.access_token
+            args.homeserver and args.user_id and args.device_id and args.access_token
         ):
             parser.error(
-                "--homeserver, --user-id, and --access-token are required when not using --login"
+                "--homeserver, --user-id, --device-id, and --access-token are required when not using --login"
             )
 
         return CliOpts(
@@ -152,6 +168,7 @@ class CliOpts:
             login=args.login,
             homeserver=args.homeserver,
             user_id=args.user_id,
+            device_id=args.device_id,
             access_token=args.access_token,
         )
 

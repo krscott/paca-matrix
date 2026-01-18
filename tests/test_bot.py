@@ -15,6 +15,8 @@ def mock_async_client():
         client_instance.sync = AsyncMock()
         client_instance.close = AsyncMock()
         client_instance.add_event_callback = MagicMock()
+        client_instance.store = MagicMock()
+        client_instance.next_batch = ""
         mock.return_value = client_instance
         yield mock, client_instance
 
@@ -22,12 +24,12 @@ def mock_async_client():
 @pytest.fixture
 def bot(mock_async_client):
     _mock, client_instance = mock_async_client
-    return EchoBot("https://example.com", "@bot:example.com", "test_token")
+    return EchoBot("https://example.com", "@bot:example.com", "DEVICE123", "test_token")
 
 
 def test_bot_initialization(mock_async_client):
     mock, client_instance = mock_async_client
-    bot = EchoBot("https://example.com", "@bot:example.com", "test_token")
+    bot = EchoBot("https://example.com", "@bot:example.com", "DEVICE123", "test_token")
     assert bot.client == client_instance
     assert bot.client.access_token == "test_token"
 
@@ -92,11 +94,11 @@ async def test_message_callback_from_self(bot):
 
 def test_bot_initialization_with_token(mock_async_client):
     mock, client_instance = mock_async_client
-    bot = EchoBot("https://example.com", "@bot:example.com", "my_token")
+    bot = EchoBot("https://example.com", "@bot:example.com", "DEVICE123", "my_token")
     assert bot.client.access_token == "my_token"
 
 
 def test_bot_initialization_homeserver(mock_async_client):
     mock, client_instance = mock_async_client
-    EchoBot("https://matrix.org", "@bot:matrix.org", "token")
-    mock.assert_called_once_with("https://matrix.org", "@bot:matrix.org")
+    EchoBot("https://matrix.org", "@bot:matrix.org", "DEVICE123", "token")
+    mock.assert_called_once()
