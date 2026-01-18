@@ -5,6 +5,7 @@ requires-python = ">=3.10.12"
 
 dependencies = [
     "python-dotenv~=1.0",
+    "matrix-nio[e2e]>=0.24",
 ]
 
 [project.optional-dependencies]
@@ -13,6 +14,7 @@ dev = [
     "isort",
     "mypy~=1.9",
     "pytest",
+    "pytest-asyncio",
 ]
 
 [project.scripts]
@@ -57,6 +59,9 @@ show_error_context = true
 # type annotation overhead in test code. Production code in paca_matrix/
 # still requires full type annotations.
 exclude = ["tests/"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
 
 # [tool.setuptools.package-data]
 # # Uncomment to include non-Python files in your package distribution
