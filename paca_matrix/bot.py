@@ -29,7 +29,10 @@ class EchoBot:
     async def start(self) -> None:
         log.info("Starting bot...")
 
-        self.client.add_event_callback(self.message_callback, RoomMessageText)
+        self.client.add_event_callback(
+            self.message_callback,  # pyright: ignore
+            RoomMessageText,
+        )
 
         await self.client.sync()
         log.info("Bot started and synced")
