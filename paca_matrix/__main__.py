@@ -8,7 +8,6 @@ from typing import Any
 from dotenv import load_dotenv
 
 from paca_matrix.bot import EchoBot
-from paca_matrix.lib import greet
 
 log = logging.getLogger(__name__)
 
@@ -23,15 +22,12 @@ def main() -> None:
         format="%(message)s",
     )
 
-    if opts.mode == "bot":
-        asyncio.run(run_bot(opts))
-    else:
-        greet(opts.name or "World")
+    asyncio.run(run_bot(opts))
 
 
 async def run_bot(opts: "CliOpts") -> None:
     if not opts.homeserver or not opts.user_id or not opts.access_token:
-        log.error("Bot mode requires --homeserver, --user-id, and --access-token")
+        log.error("Bot requires --homeserver, --user-id, and --access-token")
         return
 
     bot = EchoBot(opts.homeserver, opts.user_id, opts.access_token)
@@ -47,15 +43,13 @@ async def run_bot(opts: "CliOpts") -> None:
 @dataclass(kw_only=True, frozen=True)
 class CliOpts:
     verbose: bool
-    mode: str
-    name: str | None
     homeserver: str | None
     user_id: str | None
     access_token: str | None
 
     @staticmethod
     def parse_args() -> "CliOpts":
-        parser = argparse.ArgumentParser()
+        parser = argparse.ArgumentParser(description="Matrix echo bot")
 
         parser.add_argument(
             "-v",
@@ -65,16 +59,6 @@ class CliOpts:
             nargs=0,
             help="show more detailed log messages",
         )
-        parser.add_argument(
-            "--mode",
-            action=EnvAction,
-            env_var="PACAMATRIX_MODE",
-            default="greet",
-            choices=["greet", "bot"],
-            help="Run mode: greet or bot (default: greet, env: PACAMATRIX_MODE)",
-        )
-        parser.add_argument("name", nargs="?", help="Your name (for greet mode)")
-
         parser.add_argument(
             "--homeserver",
             action=EnvAction,
@@ -98,8 +82,6 @@ class CliOpts:
 
         return CliOpts(
             verbose=args.verbose is not None,
-            mode=args.mode,
-            name=args.name,
             homeserver=args.homeserver,
             user_id=args.user_id,
             access_token=args.access_token,
