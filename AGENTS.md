@@ -104,14 +104,16 @@ Use `pathlib.Path` instead of `os.path`.
    * `./format.sh`
    * `mypy .` (zero errors)
    * `pytest` (write tests for new functionality)
+   * `nix flake show '.?submodules=1'` (no nix errors)
 3. **Commit**: Only after all checks pass
 
 ### Pre-Commit Checklist
 - [ ] `./format.sh` run
 - [ ] `mypy .` passes
 - [ ] `pytest` passes
+- [ ] `nix flake show '.?submodules=1'` succeeds
 - [ ] New code has type hints and tests
-- [ ] AGENTS.md updated if outdated
+- [ ] AGENTS.md and README.md updated if outdated
 
 ## 5. Reusable Components
 

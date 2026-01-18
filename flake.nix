@@ -54,10 +54,6 @@
           default = paca-matrix;
 
           paca-matrix = pkgs.python3.pkgs.callPackage ./. { };
-
-          paca-matrix-test = paca-matrix.override {
-            doCheck = true;
-          };
         };
 
         devShells = {
