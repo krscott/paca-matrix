@@ -14,7 +14,6 @@ def mock_async_client():
         client_instance.room_send = AsyncMock()
         client_instance.sync = AsyncMock()
         client_instance.close = AsyncMock()
-        client_instance.load_store = MagicMock()
         client_instance.add_event_callback = MagicMock()
         mock.return_value = client_instance
         yield mock, client_instance
@@ -31,7 +30,6 @@ def test_bot_initialization(mock_async_client):
     bot = EchoBot("https://example.com", "@bot:example.com", "test_token")
     assert bot.client == client_instance
     assert bot.client.access_token == "test_token"
-    client_instance.load_store.assert_called_once()
 
 
 async def test_bot_start(bot):

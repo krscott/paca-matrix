@@ -9,7 +9,6 @@ class EchoBot:
     def __init__(self, homeserver: str, user_id: str, access_token: str) -> None:
         self.client = AsyncClient(homeserver, user_id)
         self.client.access_token = access_token
-        self.client.load_store()
 
     async def message_callback(self, room: MatrixRoom, event: RoomMessageText) -> None:
         if event.sender == self.client.user:
