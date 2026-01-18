@@ -1,0 +1,40 @@
+name: Workflow
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - uses: cachix/install-nix-action@v31
+      with:
+        github_access_token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Check Format
+      run: |
+        nix run -L .#format
+        git diff --exit-code
+
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - uses: cachix/install-nix-action@v31
+      with:
+        github_access_token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Check Mypy
+      run: nix run -L .#mypy
+
+    - name: Check Develop Shell
+      run: nix develop --command bash -c 'pystart --help'
+
+    - name: Test and Build
+      run: nix build -L
