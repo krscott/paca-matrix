@@ -34,8 +34,29 @@ def test_bot_initialization(mock_async_client):
 
 async def test_bot_start(bot):
     await bot.start()
+    bot.client.add_event_callback.assert_not_called()
+    bot.client.sync.assert_not_called()
+
+
+async def test_bot_run_forever_does_initial_sync(bot):
+    call_count = 0
+
+    async def stop_after_two_syncs(*args):
+        nonlocal call_count
+        call_count += 1
+        if call_count >= 2:
+            await bot.stop()
+            raise SystemExit()
+
+    bot.client.sync = AsyncMock(side_effect=stop_after_two_syncs)
+
+    try:
+        await bot.run_forever()
+    except SystemExit:
+        pass
+
+    assert bot.client.sync.call_count >= 2
     bot.client.add_event_callback.assert_called_once()
-    bot.client.sync.assert_called_once()
 
 
 async def test_bot_stop(bot):

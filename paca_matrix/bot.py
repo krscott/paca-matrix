@@ -1,6 +1,6 @@
 import logging
 
-from nio import AsyncClient, MatrixRoom, RoomMessageText  # type: ignore
+from nio import AsyncClient, MatrixRoom, RoomMessageText, SyncResponse  # type: ignore
 
 log = logging.getLogger(__name__)
 
@@ -27,19 +27,28 @@ class EchoBot:
     async def start(self) -> None:
         log.info("Starting bot...")
 
+        log.info("Bot started")
+
+    async def run_forever(self) -> None:
+        await self.start()
+
+        response = await self.client.sync()
+        if isinstance(response, SyncResponse):
+            self.client.next_batch = response.next_batch
+            log.info(
+                "Initial sync complete, next_batch: %s",
+                response.next_batch[:20] + "...",
+            )
+
         self.client.add_event_callback(
             self.message_callback,  # pyright: ignore
             RoomMessageText,
         )
 
-        await self.client.sync()
-        log.info("Bot started and synced")
-
-    async def run_forever(self) -> None:
-        await self.start()
-
         while True:
-            await self.client.sync()
+            response = await self.client.sync()
+            if isinstance(response, SyncResponse):
+                self.client.next_batch = response.next_batch
 
     async def stop(self) -> None:
         log.info("Stopping bot...")
