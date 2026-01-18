@@ -10,29 +10,35 @@ Python project managed with **Nix**. Dev environment assumed active.
 | Type check | `mypy .` |
 | Run all tests | `pytest` |
 | Run single test | `pytest tests/test_file.py::test_name` |
+| Check Nix flake | `nix flake show '.?submodules=1'` |
 
-## 1. Environment & Dependencies
+## 1. Project Overview
 
-### Template
+This is a Matrix echo bot using the matrix-nio library. The bot connects to a Matrix homeserver and echoes back messages it receives in rooms.
 
-Run `./init-template.sh your_project_name` to initialize a new project from this template.
-Then remove the example `greet` function and tests, and replace this "Template" section.
+### Project Structure
+
+- `paca_matrix/bot.py` - EchoBot class implementing Matrix message handling
+- `paca_matrix/__main__.py` - CLI entry point with argparse and EnvAction
+- `tests/test_bot.py` - Bot unit tests using pytest and pytest-asyncio
+- `tests/test_env_action.py` - Tests for EnvAction argument parser
+
+## 2. Environment & Dependencies
 
 ### Adding Dependencies
 
 Three-layer system:
 1. **`pyproject.toml`** - Source of truth for Python packages
 2. **`default.nix`** - Maps to Nix packages (add to `propagatedBuildInputs`)
-3. **`flake.nix`** - System-level dev tools only (add to `devPkgs`)
+3. **`flake.nix`** - Dev tools (add to `pythonDev` for Python packages)
 
 **Workflow:**
 1. Add to `pyproject.toml` (`dependencies` or `optional-dependencies.dev`)
 2. Add corresponding Nix package to `default.nix`
-3. Run `pip install -e '.[dev]'`
+3. For dev dependencies, also add to `pythonDev` in `flake.nix`
+4. Run `pip install -e '.[dev]'` (No need to reload nix develop shell)
 
-**Important**: Always use `pip install -e '.[dev]'`, never `pip install <package>` directly.
-
-## 2. Build, Test, and Lint
+## 3. Build, Test, and Lint
 
 ### Formatting
 * **Command**: `./format.sh` (runs isort, black, nix fmt)
@@ -47,7 +53,7 @@ Three-layer system:
 * Tests in `tests/` directory
 * Use pytest fixtures for setup/teardown
 
-## 3. Code Style
+## 4. Code Style
 
 ### Type Hints
 Use modern Python 3.10+ syntax:
@@ -65,7 +71,7 @@ def log_messages(messages: list[str | None]) -> None:
 Avoid `Any` and `# type: ignore` unless necessary.
 
 ### Imports
-* Absolute imports preferred: `from paca_matrix.lib import greet`
+* Absolute imports preferred: `from paca_matrix.bot import EchoBot`
 * isort handles organization automatically
 
 ### Error Handling
@@ -96,7 +102,7 @@ def process_data(data: dict[str, str]) -> int:
 ### File System
 Use `pathlib.Path` instead of `os.path`.
 
-## 4. Workflow
+## 5. Workflow
 
 ### Development Cycle
 1. **Edit**: Make changes following style guidelines
@@ -115,7 +121,7 @@ Use `pathlib.Path` instead of `os.path`.
 - [ ] New code has type hints and tests
 - [ ] AGENTS.md and README.md updated if outdated
 
-## 5. Reusable Components
+## 6. Reusable Components
 
 ### EnvAction
 
@@ -123,10 +129,9 @@ Use `pathlib.Path` instead of `os.path`.
 
 ```python
 parser.add_argument(
-    "-v", "--verbose",
+    "--homeserver",
     action=EnvAction,
-    env_var="MYAPP_VERBOSE",
-    nargs=0,
-    help="show more detailed log messages",
+    env_var="PACAMATRIX_HOMESERVER",
+    help="Matrix homeserver URL (env: PACAMATRIX_HOMESERVER)",
 )
 ```
