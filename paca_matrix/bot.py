@@ -1,4 +1,3 @@
-import asyncio
 import logging
 
 from nio import AsyncClient, MatrixRoom, RoomMessageText  # type: ignore
