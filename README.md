@@ -22,7 +22,31 @@ nix develop
 
 ## Usage
 
+### Initial Setup (Login)
+
+To set up credentials for the first time, use the `--login` flag:
+
+```bash
+paca --login
+```
+
+You will be prompted for:
+- Homeserver URL (e.g., `https://matrix.org`)
+- Username
+- Password
+- Device name (optional, defaults to `paca-bot`)
+
+Credentials will be saved to a `.env` file with restricted permissions (0o600).
+
 ### Command Line
+
+Once credentials are configured, run the bot:
+
+```bash
+paca
+```
+
+Or specify credentials manually:
 
 ```bash
 paca --homeserver https://matrix.org --user-id @bot:example.com --access-token YOUR_TOKEN
@@ -45,8 +69,17 @@ Then run:
 paca
 ```
 
-### Getting an Access Token
+### Getting Credentials
 
+There are two ways to set up credentials:
+
+**Option 1: Use `--login` flag (recommended)**
+```bash
+paca --login
+```
+This automatically logs you in and saves credentials to `.env`.
+
+**Option 2: Manual setup**
 1. Create a Matrix account for your bot
 2. Use the Element web client or similar to get an access token
 3. In Element, open Settings → Help & About → Advanced → Access Token

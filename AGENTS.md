@@ -6,6 +6,7 @@ Python project managed with **Nix**. Dev environment assumed active.
 
 | Action | Command |
 |--------|---------|
+| Login to Matrix | `paca --login` |
 | Format code | `./format.sh` |
 | Type check | `mypy .` |
 | Run all tests | `pytest` |
