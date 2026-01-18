@@ -33,10 +33,9 @@ def main() -> None:
 
 
 async def handle_login() -> None:
-    homeserver = input("Homeserver URL (e.g., https://matrix.org): ").strip()
+    homeserver = input("Homeserver URL (press Enter for https://matrix.org): ").strip()
     if not homeserver:
-        log.error("Homeserver URL is required")
-        return
+        homeserver = "https://matrix.org"
 
     username = input("Username: ").strip()
     if not username:
