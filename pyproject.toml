@@ -16,7 +16,7 @@ dev = [
 ]
 
 [project.scripts]
-pacamatrix = "paca_matrix.__main__:main"
+paca = "paca_matrix.__main__:main"
 
 [build-system]
 requires = ["setuptools >= 61.2"]

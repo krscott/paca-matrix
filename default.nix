@@ -30,7 +30,7 @@ buildPythonApplication {
   };
 
   meta = {
-    mainProgram = "pacamatrix";
+    mainProgram = "paca";
     # description = "A short description of my application";
     # homepage = "https://github.com";
     # license = lib.licenses.mit;
