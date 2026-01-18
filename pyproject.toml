@@ -1,5 +1,5 @@
 [project]
-name = "py-start"
+name = "paca-matrix"
 version = "0.1.0"
 requires-python = ">=3.10.12"
 
@@ -16,7 +16,7 @@ dev = [
 ]
 
 [project.scripts]
-pystart = "py_start.__main__:main"
+pacamatrix = "paca_matrix.__main__:main"
 
 [build-system]
 requires = ["setuptools >= 61.2"]
@@ -54,7 +54,7 @@ show_error_context = true
 
 # Exclude tests directory from type checking
 # Tests are excluded to allow more flexible testing patterns and reduce
-# type annotation overhead in test code. Production code in py_start/
+# type annotation overhead in test code. Production code in paca_matrix/
 # still requires full type annotations.
 exclude = ["tests/"]
 

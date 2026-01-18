@@ -3,7 +3,7 @@ import os
 
 from dotenv import load_dotenv
 
-from py_start.__main__ import EnvAction
+from paca_matrix.__main__ import EnvAction
 
 
 def test_env_action_basic():

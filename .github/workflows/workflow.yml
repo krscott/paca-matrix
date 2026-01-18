@@ -34,7 +34,7 @@ jobs:
       run: nix run -L .#mypy
 
     - name: Check Develop Shell
-      run: nix develop --command bash -c 'pystart --help'
+      run: nix develop --command bash -c 'pacamatrix --help'
 
     - name: Test and Build
       run: nix build -L

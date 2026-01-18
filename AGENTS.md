@@ -1,4 +1,4 @@
-# Agent Guide for py-start
+# Agent Guide for paca-matrix
 
 Python project managed with **Nix**. Dev environment assumed active.
 
@@ -65,7 +65,7 @@ def log_messages(messages: list[str | None]) -> None:
 Avoid `Any` and `# type: ignore` unless necessary.
 
 ### Imports
-* Absolute imports preferred: `from py_start.lib import greet`
+* Absolute imports preferred: `from paca_matrix.lib import greet`
 * isort handles organization automatically
 
 ### Error Handling
@@ -117,7 +117,7 @@ Use `pathlib.Path` instead of `os.path`.
 
 ### EnvAction
 
-`EnvAction` in `py_start/__main__.py` provides argparse arguments with environment variable fallbacks:
+`EnvAction` in `paca_matrix/__main__.py` provides argparse arguments with environment variable fallbacks:
 
 ```python
 parser.add_argument(

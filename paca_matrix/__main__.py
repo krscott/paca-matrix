@@ -6,7 +6,7 @@ from typing import Any
 
 from dotenv import load_dotenv
 
-from py_start.lib import greet
+from paca_matrix.lib import greet
 
 
 def main() -> None:
@@ -35,7 +35,7 @@ class CliOpts:
             "-v",
             "--verbose",
             action=EnvAction,
-            env_var="PYSTART_VERBOSE",
+            env_var="PACAMATRIX_VERBOSE",
             nargs=0,
             help="show more detailed log messages",
         )

@@ -24,9 +24,9 @@
         pkgs = nixpkgs.legacyPackages.${system};
 
         # Final derivation including any overrides made to output package
-        inherit (self.packages.${system}) py-start;
+        inherit (self.packages.${system}) paca-matrix;
 
-        pythonDev = py-start.python.withPackages (
+        pythonDev = paca-matrix.python.withPackages (
           ps:
           with ps;
           [
@@ -34,8 +34,8 @@
             isort
             mypy
           ]
-          ++ py-start.propagatedBuildInputs
-          ++ py-start.nativeBuildInputs
+          ++ paca-matrix.propagatedBuildInputs
+          ++ paca-matrix.nativeBuildInputs
         );
 
         mkApp = text: {
@@ -51,18 +51,18 @@
       in
       {
         packages = {
-          default = py-start;
+          default = paca-matrix;
 
-          py-start = pkgs.python3.pkgs.callPackage ./. { };
+          paca-matrix = pkgs.python3.pkgs.callPackage ./. { };
 
-          py-start-test = py-start.override {
+          paca-matrix-test = paca-matrix.override {
             doCheck = true;
           };
         };
 
         devShells = {
           default = pkgs.mkShell {
-            inputsFrom = [ py-start ];
+            inputsFrom = [ paca-matrix ];
             nativeBuildInputs = [ pythonDev ];
             packages = [ pkgs.python3.pkgs.venvShellHook ];
             venvDir = ".venv";

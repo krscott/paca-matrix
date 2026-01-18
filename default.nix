@@ -7,7 +7,7 @@
   pytest,
 }:
 buildPythonApplication {
-  name = "py-start";
+  name = "paca-matrix";
   src = lib.cleanSource ./.;
   pyproject = true;
 
@@ -23,14 +23,14 @@ buildPythonApplication {
     pytest
   '';
 
-  pythonImportsCheck = [ "py_start" ];
+  pythonImportsCheck = [ "paca_matrix" ];
 
   passthru = {
     inherit python;
   };
 
   meta = {
-    mainProgram = "pystart";
+    mainProgram = "pacamatrix";
     # description = "A short description of my application";
     # homepage = "https://github.com";
     # license = lib.licenses.mit;

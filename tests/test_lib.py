@@ -1,4 +1,4 @@
-from py_start.lib import greet
+from paca_matrix.lib import greet
 
 
 def test_greet(capsys):

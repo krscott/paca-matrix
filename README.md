@@ -1,4 +1,4 @@
-# py-start
+# paca-matrix
 
 My rather opinionated Python project template.
 
