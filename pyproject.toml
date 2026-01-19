@@ -28,37 +28,18 @@ build-backend = "setuptools.build_meta"
 skip = [".direnv", "result", ".venv"]
 
 [tool.mypy]
-# Strict mode settings
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-disallow_untyped_decorators = true
-no_implicit_optional = true
-strict_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-warn_unreachable = true
-
-# Disable error code for 3rd party libraries without type stubs
-disallow_any_unimported = false
-
-# Extra assurance
-disallow_subclassing_any = true
-disallow_untyped_calls = true
+strict = true
 
 # Improved error messages
 pretty = true
 show_column_numbers = true
 show_error_context = true
 
-# Exclude tests directory from type checking
-# Tests are excluded to allow more flexible testing patterns and reduce
-# type annotation overhead in test code. Production code in paca_matrix/
-# still requires full type annotations.
-exclude = ["tests/"]
+exclude = ["tests"]
+
+[[tool.mypy.overrides]]
+module = ["nio"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
