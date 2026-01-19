@@ -161,7 +161,9 @@ class PacaBot:
                 request_id=self._pending_question.request_id,
                 answers=[labels],
             )
-            log.info("Submitted question answer: %s (indices: %s)", labels, valid_indices)
+            log.info(
+                "Submitted question answer: %s (indices: %s)", labels, valid_indices
+            )
             self._pending_question = None
             return True
         except Exception as e:
@@ -216,7 +218,9 @@ class PacaBot:
 
         # Parse options
         options = [
-            QuestionOption(label=opt.get("label", ""), description=opt.get("description", ""))
+            QuestionOption(
+                label=opt.get("label", ""), description=opt.get("description", "")
+            )
             for opt in question_options
         ]
 

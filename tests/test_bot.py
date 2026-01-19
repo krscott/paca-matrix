@@ -280,7 +280,10 @@ async def test_handle_question_event(
                     "options": [
                         {"label": "React", "description": "A JavaScript library"},
                         {"label": "Vue", "description": "A progressive framework"},
-                        {"label": "Angular", "description": "A full-featured framework"},
+                        {
+                            "label": "Angular",
+                            "description": "A full-featured framework",
+                        },
                     ],
                     "multiple": False,
                 }
@@ -327,7 +330,9 @@ async def test_handle_question_response_single_select(
     mock_opencode_client.reply_question = AsyncMock()
 
     # Send valid response
-    result = await bot._handle_question_response("1")  # pyright: ignore[reportPrivateUsage]
+    result = await bot._handle_question_response(
+        "1"
+    )  # pyright: ignore[reportPrivateUsage]
 
     assert result is True
     mock_opencode_client.reply_question.assert_called_once_with(
@@ -357,7 +362,9 @@ async def test_handle_question_response_multiple_select(
     mock_opencode_client.reply_question = AsyncMock()
 
     # Send valid response
-    result = await bot._handle_question_response("1,3")  # pyright: ignore[reportPrivateUsage]
+    result = await bot._handle_question_response(
+        "1,3"
+    )  # pyright: ignore[reportPrivateUsage]
 
     assert result is True
     mock_opencode_client.reply_question.assert_called_once_with(
@@ -386,7 +393,9 @@ async def test_handle_question_response_invalid_index(
     mock_opencode_client.reply_question = AsyncMock()
 
     # Send invalid response (out of range)
-    result = await bot._handle_question_response("5")  # pyright: ignore[reportPrivateUsage]
+    result = await bot._handle_question_response(
+        "5"
+    )  # pyright: ignore[reportPrivateUsage]
 
     assert result is True
     mock_opencode_client.reply_question.assert_not_called()
@@ -415,7 +424,9 @@ async def test_handle_question_response_non_numeric(
     mock_opencode_client.reply_question = AsyncMock()
 
     # Send non-numeric response
-    result = await bot._handle_question_response("I don't know")  # pyright: ignore[reportPrivateUsage]
+    result = await bot._handle_question_response(
+        "I don't know"
+    )  # pyright: ignore[reportPrivateUsage]
 
     assert result is False  # Not handled as question response
     mock_opencode_client.reply_question.assert_not_called()
