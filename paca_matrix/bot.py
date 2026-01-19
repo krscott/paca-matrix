@@ -55,6 +55,7 @@ class PacaBot:
         self._start_time_ms: int = int(time.time() * 1000)
         self._sent_message_ids: set[str] = set()
         self._pending_question: PendingQuestion | None = None
+        self._should_exit: bool = False
 
     async def send_to_matrix(self, room: MatrixRoom, message: str) -> None:
         await self.matrix_bot.send_message(room, message)
@@ -217,6 +218,19 @@ class PacaBot:
                     await self.send_to_matrix(self.current_room, f"Error stopping agent: {e}")
                 return True, None
 
+        if command == "!kill":
+            try:
+                await self.opencode_client.abort_session()
+                if self.current_room:
+                    await self.send_to_matrix(self.current_room, "Agent killed. Exiting...")
+                self._should_exit = True
+                return True, None
+            except Exception as e:
+                log.exception("Error killing agent: %s", e)
+                if self.current_room:
+                    await self.send_to_matrix(self.current_room, f"Error killing agent: {e}")
+                return True, None
+
         # Unknown command - send error
         if self.current_room:
             await self.send_to_matrix(
@@ -245,6 +259,17 @@ class PacaBot:
         except asyncio.CancelledError:
             log.info("Event listener cancelled")
             raise
+
+    async def _exit_watcher(self, sync_task: asyncio.Task[None]) -> None:
+        """Background task that checks if the bot should exit and stops sync."""
+        while not self._should_exit:
+            await asyncio.sleep(0.5)
+        log.info("Exit flag set, stopping sync...")
+        sync_task.cancel()
+        try:
+            await sync_task
+        except asyncio.CancelledError:
+            pass
 
     async def _handle_question_event(self, properties: dict[str, Any]) -> None:
         """Handle question events from OpenCode and send to Matrix as numbered list."""
@@ -358,16 +383,34 @@ class PacaBot:
         self._event_listener_task = asyncio.create_task(
             self._event_listener(), name="opencode_event_listener"
         )
+
+        # Start the exit watcher task
+        sync_task = asyncio.create_task(
+            self.matrix_bot.sync_forever(), name="matrix_sync"
+        )
+        exit_watcher_task = asyncio.create_task(
+            self._exit_watcher(sync_task), name="exit_watcher"
+        )
+
         log.info("Bot started")
 
         try:
-            await self.matrix_bot.sync_forever()
+            await sync_task
+        except asyncio.CancelledError:
+            log.info("Sync cancelled")
         finally:
-            # Ensure event listener is cancelled if sync_forever exits
+            # Ensure event listener is cancelled if sync exits
             if self._event_listener_task and not self._event_listener_task.done():
                 self._event_listener_task.cancel()
                 try:
                     await self._event_listener_task
+                except asyncio.CancelledError:
+                    pass
+
+            if not exit_watcher_task.done():
+                exit_watcher_task.cancel()
+                try:
+                    await exit_watcher_task
                 except asyncio.CancelledError:
                     pass
 
