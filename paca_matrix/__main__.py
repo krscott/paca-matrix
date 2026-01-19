@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
-from nio import AsyncClient  # type: ignore
+from nio import AsyncClient  # pyright: ignore
 from nio.responses import ErrorResponse  # type: ignore
 
 from paca_matrix.bot import EchoBot

@@ -3,9 +3,9 @@ import json
 import logging
 from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
-from nio import (
+from nio import (  # pyright: ignore
     AsyncClient,
     AsyncClientConfig,
     Event,
@@ -86,7 +86,7 @@ class ACPClient:
                 break
             log.debug("OpenCode stderr: %s", line.decode().strip())
 
-    async def prompt_stream(self, message: str) -> AsyncIterator[dict]:
+    async def prompt_stream(self, message: str) -> AsyncIterator[dict[str, Any]]:
         if not self.session_id:
             raise RuntimeError("Session not initialized")
 
@@ -116,9 +116,11 @@ class ACPClient:
                 notification.get("method") == "session/update"
                 and notification.get("params", {}).get("sessionId") == self.session_id
             ):
-                yield notification["params"]
+                yield cast(dict[str, Any], notification["params"])
 
-    async def _send_request(self, method: str, params: dict) -> dict:
+    async def _send_request(
+        self, method: str, params: dict[str, Any]
+    ) -> dict[str, Any]:
         request_id = self.request_id
         self.request_id += 1
 
@@ -137,11 +139,11 @@ class ACPClient:
                 if "error" in response:
                     raise RuntimeError(f"ACP error: {response['error']}")
                 result = response.get("result")
-                if isinstance(result, dict):
+                if result:
                     return result
                 return {}
 
-    async def _write_message(self, message: dict) -> None:
+    async def _write_message(self, message: dict[str, Any]) -> None:
         if not self.process or not self.process.stdin:
             raise RuntimeError("Process not started")
 
@@ -150,7 +152,7 @@ class ACPClient:
         self.process.stdin.write((data + "\n").encode())
         await self.process.stdin.drain()
 
-    async def _read_message(self) -> dict:
+    async def _read_message(self) -> dict[str, Any]:
         if not self.process or not self.process.stdout:
             raise RuntimeError("Process not started")
 
@@ -162,7 +164,7 @@ class ACPClient:
 
         line = line_bytes.decode().strip()
         log.debug("Received: %s", line)
-        return cast(dict, json.loads(line))
+        return cast(dict[str, Any], json.loads(line))
 
     async def stop(self) -> None:
         if self.process:
@@ -209,7 +211,7 @@ class EchoBot:
         log.info("Received from %s: %s", event.sender, event.body)
 
         try:
-            message_parts = []
+            message_parts: list[str] = []
             async for update in self.acp_client.prompt_stream(event.body):
                 update_type = update.get("update", {}).get("sessionUpdate")
 
@@ -217,6 +219,7 @@ class EchoBot:
                     content = update.get("update", {}).get("content", {})
                     if content.get("type") == "text":
                         text = content.get("text", "")
+                        assert isinstance(text, str)
                         message_parts.append(text)
 
                 elif update_type == "plan":
