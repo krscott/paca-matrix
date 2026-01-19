@@ -240,37 +240,16 @@ class EchoBot:
                         assert isinstance(text, str)
                         message_parts.append(text)
 
-                elif update_type == "plan":
-                    entries = update.get("update", {}).get("entries", [])
-                    plan_text = "\n".join(
-                        f"- {e.get('content', '')}" for e in entries if e.get("content")
-                    )
-                    if plan_text:
-                        message_parts.append(f"**Plan:**\n{plan_text}")
-
-                elif update_type == "tool_call":
-                    title = update.get("title", "Tool call")
-                    status = update.get("status", "pending")
-                    message_parts.append(f"**{title}**: {status}")
-
-                elif update_type == "tool_call_update":
-                    status = update.get("status", "pending")
-                    content_list = update.get("content", [])
-                    if status == "completed" and content_list:
-                        content = content_list[0].get("content", {})
-                        if content.get("type") == "text":
-                            message_parts.append(content.get("text", ""))
-
                 if (
                     update_type != prev_update_type
                     and prev_update_type == "agent_message_chunk"
                 ):
-                    await self.send_to_matrix(room, "".join(message_parts).strip())
+                    await self.send_to_matrix(room, "".join(message_parts))
                     message_parts.clear()
 
                 prev_update_type = update_type
 
-            await self.send_to_matrix(room, "".join(message_parts).strip())
+            await self.send_to_matrix(room, "".join(message_parts))
 
         except Exception as e:
             log.exception("Error processing message: %s", e)
