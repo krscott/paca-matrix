@@ -1,3 +1,5 @@
+import asyncio
+import json
 import logging
 from collections.abc import AsyncIterator
 from typing import Any
@@ -5,6 +7,26 @@ from typing import Any
 import aiohttp
 
 log = logging.getLogger(__name__)
+
+
+class SSEEvent:
+    """Represents a Server-Sent Event."""
+
+    def __init__(
+        self,
+        event: str = "message",
+        data: str = "",
+        id: str | None = None,
+        retry: int | None = None,
+    ) -> None:
+        self.event = event
+        self.data = data
+        self.id = id
+        self.retry = retry
+
+    def json(self) -> Any:
+        """Parse the data field as JSON."""
+        return json.loads(self.data)
 
 
 class OpencodeClient:
@@ -56,46 +78,117 @@ class OpencodeClient:
             self.session_id = session_data["id"]
             log.info("Created session: %s", self.session_id)
 
-    async def prompt_stream(self, message: str) -> AsyncIterator[dict[str, Any]]:
-        async for update in self._prompt_stream_http(message):
-            yield update
+    async def prompt_async(self, message: str) -> None:
+        """Send a message to OpenCode without waiting for a response.
 
-    async def _prompt_stream_http(self, message: str) -> AsyncIterator[dict[str, Any]]:
+        The response will arrive via the SSE event stream.
+        """
         if not self.session_id or not self.http_session or not self.server_url:
             raise RuntimeError("HTTP session not initialized")
 
-        # Send message using synchronous endpoint
-        message_url = f"{self.server_url}/session/{self.session_id}/message"
-        log.debug("Sending message to: %s", message_url)
+        url = f"{self.server_url}/session/{self.session_id}/prompt_async"
+        log.debug("Sending async message to: %s", url)
 
         async with self.http_session.post(
-            message_url,
-            json={
-                "parts": [{"type": "text", "text": message}],
-            },
+            url,
+            json={"parts": [{"type": "text", "text": message}]},
         ) as resp:
-            if resp.status != 200:
+            if resp.status != 204:
                 text = await resp.text()
                 raise RuntimeError(f"HTTP error {resp.status}: {text}")
 
-            response_data = await resp.json()
+        log.debug("Async message sent successfully")
 
-            # Extract text from response parts
-            parts = response_data.get("parts", [])
-            for part in parts:
-                if part.get("type") == "text":
-                    text_content = part.get("text", "")
-                    if text_content:
-                        # Yield in the expected format for compatibility with existing code
-                        yield {
-                            "update": {
-                                "sessionUpdate": "agent_message_chunk",
-                                "content": {
-                                    "type": "text",
-                                    "text": text_content,
-                                },
-                            },
-                        }
+    async def subscribe_events(self) -> AsyncIterator[SSEEvent]:
+        """Subscribe to the SSE event stream from OpenCode.
+
+        Yields SSEEvent objects as they arrive from the server.
+        Automatically reconnects on connection failures.
+        """
+        if not self.http_session or not self.server_url:
+            raise RuntimeError("HTTP session not initialized")
+
+        url = f"{self.server_url}/event"
+        retry_delay = 1.0
+        max_retry_delay = 30.0
+
+        while True:
+            try:
+                log.info("Connecting to SSE stream: %s", url)
+                async with self.http_session.get(
+                    url,
+                    headers={"Accept": "text/event-stream"},
+                    timeout=aiohttp.ClientTimeout(total=None, sock_read=None),
+                ) as resp:
+                    if resp.status != 200:
+                        text = await resp.text()
+                        raise RuntimeError(
+                            f"SSE connection failed: {resp.status} {text}"
+                        )
+
+                    log.info("Connected to SSE stream")
+                    retry_delay = 1.0  # Reset on successful connection
+
+                    async for event in self._parse_sse_stream(resp):
+                        yield event
+
+            except asyncio.CancelledError:
+                log.info("SSE subscription cancelled")
+                raise
+            except Exception as e:
+                log.warning(
+                    "SSE connection error: %s, reconnecting in %.1fs", e, retry_delay
+                )
+                await asyncio.sleep(retry_delay)
+                retry_delay = min(retry_delay * 2, max_retry_delay)
+
+    async def _parse_sse_stream(
+        self, resp: aiohttp.ClientResponse
+    ) -> AsyncIterator[SSEEvent]:
+        """Parse an SSE stream from an aiohttp response."""
+        event_type = "message"
+        data_lines: list[str] = []
+        event_id: str | None = None
+        retry: int | None = None
+
+        async for line_bytes in resp.content:
+            line = line_bytes.decode("utf-8").rstrip("\r\n")
+
+            if line.startswith(":"):
+                # Comment, ignore
+                continue
+            elif line == "":
+                # Empty line = dispatch event
+                if data_lines:
+                    data = "\n".join(data_lines)
+                    yield SSEEvent(
+                        event=event_type, data=data, id=event_id, retry=retry
+                    )
+                # Reset for next event
+                event_type = "message"
+                data_lines = []
+                event_id = None
+                retry = None
+            elif ":" in line:
+                field, _, value = line.partition(":")
+                if value.startswith(" "):
+                    value = value[1:]
+
+                if field == "event":
+                    event_type = value
+                elif field == "data":
+                    data_lines.append(value)
+                elif field == "id":
+                    event_id = value
+                elif field == "retry":
+                    try:
+                        retry = int(value)
+                    except ValueError:
+                        pass
+            else:
+                # Field with no value
+                if line == "data":
+                    data_lines.append("")
 
     async def stop(self) -> None:
         if self.http_session:

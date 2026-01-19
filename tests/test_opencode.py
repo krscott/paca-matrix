@@ -21,13 +21,22 @@ def test_acp_client_initialization_without_session_name():
     assert client.http_session is None
 
 
-async def test_acp_client_prompt_stream_no_session():
-    """Test that prompt_stream raises error when session not initialized."""
+async def test_acp_client_prompt_async_no_session():
+    """Test that prompt_async raises error when session not initialized."""
     client = OpencodeClient("http://localhost:8080")
     # Don't set session_id or http_session
 
     with pytest.raises(RuntimeError, match="HTTP session not initialized"):
-        async for _ in client.prompt_stream("test message"):
+        await client.prompt_async("test message")
+
+
+async def test_acp_client_subscribe_events_no_session():
+    """Test that subscribe_events raises error when session not initialized."""
+    client = OpencodeClient("http://localhost:8080")
+    # Don't set http_session
+
+    with pytest.raises(RuntimeError, match="HTTP session not initialized"):
+        async for _ in client.subscribe_events():
             pass
 
 

@@ -119,7 +119,7 @@ Use `pathlib.Path` instead of `os.path`.
 2. **Verify**:
    * `./format.sh`
    * `mypy .` (zero errors)
-   * `pytest` (write tests for new functionality)
+   * `pytest` (write tests for new functionality if practical without too many mocks)
    * `nix flake show '.?submodules=1'` (no nix errors)
 3. **Commit**: Only after all checks pass
 
