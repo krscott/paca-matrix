@@ -94,9 +94,9 @@ class PacaBot:
         self.current_room = room
 
         message_to_send = event.body
-        # Check if this is a slash command
-        if event.body.startswith("/"):
-            command_handled, message_to_send = await self._handle_slash_command(event.body)
+        # Check if this is a bang command
+        if event.body.startswith("!"):
+            command_handled, message_to_send = await self._handle_bang_command(event.body)
             if command_handled:
                 return
 
@@ -182,11 +182,11 @@ class PacaBot:
                 )
             return True
 
-    async def _handle_slash_command(self, message: str) -> tuple[bool, str | None]:
-        """Handle slash commands. Returns (handled, message_to_send)."""
-        # Handle // as escape to send to OpenCode
-        if message.startswith("//"):
-            return False, message[1:]  # Strip one slash
+    async def _handle_bang_command(self, message: str) -> tuple[bool, str | None]:
+        """Handle bang commands. Returns (handled, message_to_send)."""
+        # Handle !! as escape to send to OpenCode
+        if message.startswith("!!"):
+            return False, message[1:]  # Strip one bang
 
         parts = message.strip().split(maxsplit=1)
         if not parts:
@@ -195,10 +195,10 @@ class PacaBot:
         command = parts[0].lower()
         args = parts[1:] if len(parts) > 1 else []
 
-        if command == "/echo":
+        if command == "!echo":
             if len(args) == 0:
                 if self.current_room:
-                    await self.send_to_matrix(self.current_room, "Usage: /echo <message>")
+                    await self.send_to_matrix(self.current_room, "Usage: !echo <message>")
                 return True, None
             echo_msg = args[0]
             if self.current_room:
@@ -209,7 +209,7 @@ class PacaBot:
         if self.current_room:
             await self.send_to_matrix(
                 self.current_room,
-                f"Unrecognized command '{command}'. (To send to agent, send an extra slash '// ...')",
+                f"Unrecognized command '{command}'. (To send to agent, send an extra bang '!! ...')",
             )
         return True, None
 
