@@ -125,7 +125,12 @@ class PacaBot:
 
             # Skip user messages to prevent echoing the user's input back to them
             if role == "user" or author == "user":
-                log.debug("Skipping user message %s (role=%s, author=%s)", message_id, role, author)
+                log.debug(
+                    "Skipping user message %s (role=%s, author=%s)",
+                    message_id,
+                    role,
+                    author,
+                )
                 if message_id:
                     self._sent_message_ids.add(message_id)
                 return
