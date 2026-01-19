@@ -162,7 +162,9 @@ class ACPClient:
 
         line = line_bytes.decode().strip()
         log.debug("Received: %s", line)
-        return cast(dict[str, Any], json.loads(line))
+        msg = json.loads(line)
+        assert isinstance(msg, dict)
+        return cast(dict[str, Any], msg)
 
     async def stop(self) -> None:
         if self.process:
@@ -211,6 +213,7 @@ class EchoBot:
         try:
             message_parts: list[str] = []
             async for update in self.acp_client.prompt_stream(event.body):
+                log.debug(str(update))
                 update_type = update.get("update", {}).get("sessionUpdate")
 
                 if update_type == "agent_message_chunk":

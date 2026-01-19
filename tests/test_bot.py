@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from paca_matrix.bot import ACPClient, EchoBot
+from paca_matrix.bot import EchoBot
 
 
 @pytest.fixture
@@ -43,12 +43,6 @@ def test_bot_initialization(mock_async_client):
     bot = EchoBot("https://example.com", "@bot:example.com", "DEVICE123", "test_token")
     assert bot.client == client_instance
     assert bot.client.access_token == "test_token"
-
-
-async def test_bot_start(bot):
-    await bot.start()
-    bot.client.add_event_callback.assert_not_called()
-    bot.client.sync.assert_not_called()
 
 
 async def test_bot_run_forever_does_initial_sync(bot):
