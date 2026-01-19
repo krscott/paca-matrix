@@ -5,7 +5,7 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any, cast
 
-from nio import (  # pyright: ignore
+from nio import (
     AsyncClient,
     AsyncClientConfig,
     Event,
@@ -111,12 +111,15 @@ class ACPClient:
         await self._write_message(prompt_request)
 
         while True:
-            notification = await self._read_message()
-            if (
-                notification.get("method") == "session/update"
-                and notification.get("params", {}).get("sessionId") == self.session_id
-            ):
-                yield cast(dict[str, Any], notification["params"])
+            msg = await self._read_message()
+            if msg.get("id") == prompt_id:
+                return
+            if msg.get("method") == "session/update":
+                params = msg.get("params", {})
+                if params.get("sessionId") == self.session_id:
+                    yield cast(dict[str, Any], params)
+            elif msg.get("method") == "session/end":
+                return
 
     async def _send_request(
         self, method: str, params: dict[str, Any]
@@ -154,9 +157,7 @@ class ACPClient:
         if not self.process or not self.process.stdout:
             raise RuntimeError("Process not started")
 
-        line_bytes = await asyncio.wait_for(
-            self.process.stdout.readline(), timeout=30.0
-        )
+        line_bytes = await self.process.stdout.readline()
         if not line_bytes:
             raise RuntimeError("Process closed unexpectedly")
 
@@ -245,7 +246,7 @@ class EchoBot:
                             message_parts.append(content.get("text", ""))
 
             if message_parts:
-                response = "\n\n".join(message_parts)
+                response = "".join(message_parts).strip()
             else:
                 response = "No response from OpenCode"
 
