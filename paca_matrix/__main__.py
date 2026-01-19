@@ -36,12 +36,12 @@ def main() -> None:
     opts = CliOpts.parse_args()
 
     logging.basicConfig(
-        level=logging.INFO,
-        format="%(message)s",
+        level=logging.DEBUG if opts.verbose else logging.INFO,
+        format="%(name)s %(message)s",
     )
 
-    if opts.verbose:
-        log.setLevel(logging.DEBUG)
+    # Gets printed every tick, always disable
+    logging.getLogger("nio.responses").setLevel(logging.INFO)
 
     if opts.login:
         asyncio.run(handle_login())
