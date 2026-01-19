@@ -36,11 +36,13 @@ class OpencodeClient:
         self,
         server_url: str,
         session_name: str | None = None,
+        model: str | None = None,
     ) -> None:
         self.session_id: str | None = None
         self.server_url = server_url
         self.session_name = session_name
         self.http_session: aiohttp.ClientSession | None = None
+        self.model: str | None = model
 
     async def start(self) -> None:
         await self._start_http()
@@ -89,9 +91,18 @@ class OpencodeClient:
         url = f"{self.server_url}/session/{self.session_id}/prompt_async"
         log.debug("Sending async message to: %s", url)
 
+        body: dict[str, Any] = {"parts": [{"type": "text", "text": message}]}
+
+        if self.model:
+            if "/" in self.model:
+                provider_id, model_id = self.model.split("/", 1)
+                body["model"] = {"providerID": provider_id, "modelID": model_id}
+            else:
+                body["model"] = self.model
+
         async with self.http_session.post(
             url,
-            json={"parts": [{"type": "text", "text": message}]},
+            json=body,
         ) as resp:
             if resp.status != 204:
                 text = await resp.text()

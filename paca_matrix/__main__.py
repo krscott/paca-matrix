@@ -126,6 +126,7 @@ async def run_bot(opts: "CliOpts") -> None:
         access_token=opts.access_token,
         opencode_server_url=opts.opencode_server_url,
         session_name=opts.session_name,
+        model=opts.model,
     )
     _bot_instance = bot
 
@@ -148,6 +149,7 @@ class CliOpts:
     access_token: str | None
     opencode_server_url: str | None
     session_name: str | None
+    model: str | None
 
     @staticmethod
     def parse_args() -> "CliOpts":
@@ -208,6 +210,13 @@ class CliOpts:
             env_var="PACAMATRIX_SESSION",
             help="Session ID to connect to (env: PACAMATRIX_SESSION). If not set, creates a new session",
         )
+        parser.add_argument(
+            "--model",
+            required=False,
+            action=EnvAction,
+            env_var="PACAMATRIX_MODEL",
+            help="OpenCode model ID, e.g. 'anthropic/claude-3-5-sonnet-20241022' (env: PACAMATRIX_MODEL)",
+        )
 
         args = parser.parse_args()
 
@@ -231,6 +240,7 @@ class CliOpts:
             access_token=args.access_token,
             opencode_server_url=args.opencode_server_url,
             session_name=args.session,
+            model=args.model,
         )
 
 

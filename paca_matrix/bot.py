@@ -21,6 +21,7 @@ class PacaBot:
         access_token: str,
         opencode_server_url: str,
         session_name: str | None = None,
+        model: str | None = None,
     ) -> None:
         self.matrix_bot = MatrixClient(
             homeserver=homeserver,
@@ -29,7 +30,9 @@ class PacaBot:
             access_token=access_token,
         )
         self.opencode_client = OpencodeClient(
-            server_url=opencode_server_url, session_name=session_name
+            server_url=opencode_server_url,
+            session_name=session_name,
+            model=model,
         )
         self.current_room: MatrixRoom | None = None
         self._event_listener_task: asyncio.Task[None] | None = None
