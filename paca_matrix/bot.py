@@ -120,6 +120,15 @@ class PacaBot:
         if event_type == "message.updated":
             message_info: dict[str, Any] = properties.get("info", {}) or {}
             message_id: str | None = message_info.get("id")
+            role = message_info.get("role", "")
+            author = message_info.get("author", "")
+
+            # Skip user messages to prevent echoing the user's input back to them
+            if role == "user" or author == "user":
+                log.debug("Skipping user message %s (role=%s, author=%s)", message_id, role, author)
+                if message_id:
+                    self._sent_message_ids.add(message_id)
+                return
 
             if message_id and message_id not in self._sent_message_ids:
                 try:
