@@ -38,6 +38,9 @@ class ACPClient:
             stderr=asyncio.subprocess.PIPE,
         )
 
+        asyncio.create_task(self._log_stderr())
+
+        log.debug("Sending initialize request...")
         result = await self._send_request(
             "initialize",
             {
@@ -62,6 +65,7 @@ class ACPClient:
             result.get("agentInfo", {}).get("name", "Unknown"),
         )
 
+        log.debug("Sending session/new request...")
         session_result = await self._send_request(
             "session/new",
             {
@@ -72,6 +76,15 @@ class ACPClient:
 
         self.session_id = session_result["sessionId"]
         log.info("Created session: %s", self.session_id)
+
+    async def _log_stderr(self) -> None:
+        if not self.process or not self.process.stderr:
+            return
+        while True:
+            line = await self.process.stderr.readline()
+            if not line:
+                break
+            log.debug("OpenCode stderr: %s", line.decode().strip())
 
     async def prompt_stream(self, message: str) -> AsyncIterator[dict]:
         if not self.session_id:
@@ -133,27 +146,23 @@ class ACPClient:
             raise RuntimeError("Process not started")
 
         data = json.dumps(message)
-        self.process.stdin.write(f"Content-Length: {len(data)}\r\n\r\n{data}".encode())
+        log.debug("Sending JSON: %s", data)
+        self.process.stdin.write((data + "\n").encode())
         await self.process.stdin.drain()
 
     async def _read_message(self) -> dict:
         if not self.process or not self.process.stdout:
             raise RuntimeError("Process not started")
 
-        headers: dict[str, str] = {}
-        while line_bytes := await self.process.stdout.readline():
-            line = line_bytes.decode().strip()
-            if not line:
-                break
-            key, value = line.split(":", 1)
-            headers[key.strip()] = value.strip()
+        line_bytes = await asyncio.wait_for(
+            self.process.stdout.readline(), timeout=30.0
+        )
+        if not line_bytes:
+            raise RuntimeError("Process closed unexpectedly")
 
-        content_length = int(headers.get("Content-Length") or "0")
-        if content_length == 0:
-            raise RuntimeError("Invalid message: missing Content-Length")
-
-        data = await self.process.stdout.readexactly(content_length)
-        return cast(dict, json.loads(data.decode()))
+        line = line_bytes.decode().strip()
+        log.debug("Received: %s", line)
+        return cast(dict, json.loads(line))
 
     async def stop(self) -> None:
         if self.process:
