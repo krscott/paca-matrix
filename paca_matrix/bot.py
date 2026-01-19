@@ -203,6 +203,20 @@ class EchoBot:
         self.client.access_token = access_token
         self.acp_client = ACPClient()
 
+    async def send_to_matrix(self, room: MatrixRoom, message: str) -> None:
+        message = message.strip()
+        if not message:
+            log.info("Skipping empty message")
+            return
+
+        log.info("Sending to %s: %s", room.room_id, message)
+
+        await self.client.room_send(
+            room_id=room.room_id,
+            message_type="m.room.message",
+            content={"msgtype": "m.text", "body": message},
+        )
+
     async def message_callback(self, room: MatrixRoom, event: Event) -> None:
         if not isinstance(event, RoomMessageText):
             return
@@ -211,10 +225,10 @@ class EchoBot:
 
         log.info("Received from %s: %s", event.sender, event.body)
 
-        try:
-            message_parts: list[str] = []
-            prev_update_type = ""
+        message_parts: list[str] = []
+        prev_update_type = ""
 
+        try:
             async for update in self.acp_client.prompt_stream(event.body):
                 log.debug("opencode: %s", update)
                 update_type = update.get("update", {}).get("sessionUpdate")
@@ -251,21 +265,12 @@ class EchoBot:
                     update_type != prev_update_type
                     and prev_update_type == "agent_message_chunk"
                 ):
-                    if message_parts:
-                        response = "".join(message_parts).strip()
-                        message_parts.clear()
-                    else:
-                        response = "No response from OpenCode"
-
-                    await self.client.room_send(
-                        room_id=room.room_id,
-                        message_type="m.room.message",
-                        content={"msgtype": "m.text", "body": response},
-                    )
-
-                    log.info("Sending to %s: %s", room.room_id, response)
+                    await self.send_to_matrix(room, "".join(message_parts).strip())
+                    message_parts.clear()
 
                 prev_update_type = update_type
+
+            await self.send_to_matrix(room, "".join(message_parts).strip())
 
         except Exception as e:
             log.exception("Error processing message: %s", e)
