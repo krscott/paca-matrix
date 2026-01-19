@@ -44,14 +44,25 @@ Credentials will be saved to a `.env` file with restricted permissions (0o600).
 Once credentials are configured, run the bot:
 
 ```bash
-paca
+paca --opencode-server-url http://127.0.0.1:8765
 ```
 
 Or specify credentials manually:
 
 ```bash
-paca --homeserver https://matrix.org --user-id @bot:example.com --access-token YOUR_TOKEN
+paca --homeserver https://matrix.org --user-id @bot:example.com --device-id YOUR_DEVICE_ID --access-token YOUR_TOKEN --opencode-server-url http://127.0.0.1:8765
 ```
+
+**Available options:**
+- `--homeserver` - Matrix homeserver URL
+- `--user-id` - Matrix user ID
+- `--device-id` - Matrix device ID
+- `--access-token` - Matrix access token
+- `--opencode-server-url` - OpenCode server URL (required)
+- `--session` - Session ID to connect to (optional)
+- `--model` - OpenCode model ID (optional)
+- `--verbose` - Enable debug logging
+- `--login` - Set up Matrix credentials interactively
 
 ### Environment Variables
 
@@ -62,8 +73,10 @@ PACAMATRIX_HOMESERVER=https://matrix.org
 PACAMATRIX_USER_ID=@bot:example.com
 PACAMATRIX_ACCESS_TOKEN=YOUR_TOKEN
 PACAMATRIX_DEVICE_ID=YOUR_DEVICE_ID
+PACAMATRIX_OPENCODE_SERVER_URL=http://127.0.0.1:8765
+PACAMATRIX_SESSION=SESSION_ID  # Optional: Session ID to connect to
+PACAMATRIX_MODEL=anthropic/claude-3-5-sonnet-20241022  # Optional: OpenCode model ID
 PACAMATRIX_VERBOSE=1  # Optional: Enable debug logging
-PACAMATRIX_OPENCODE_SERVER_URL=http://127.0.0.1:8765  # Optional: Connect to opencode serve
 ```
 
 Then run:
@@ -74,29 +87,32 @@ paca
 
 ### OpenCode Server Modes
 
-The bot can connect to OpenCode in two ways:
+The bot connects to OpenCode via HTTP. You must specify `--opencode-server-url`:
 
-**1. Subprocess mode (default)**
-```bash
-paca
-```
-Automatically starts `opencode acp` as a subprocess. This is the default behavior.
-
-**2. HTTP serve mode**
 ```bash
 # In one terminal, start opencode serve
 opencode serve --port 8765
 
-# In another terminal, run the bot with server URL
+# In another terminal, run the bot
 paca --opencode-server-url http://127.0.0.1:8765
 
 # Or using environment variable
 PACAMATRIX_OPENCODE_SERVER_URL=http://127.0.0.1:8765 paca
 ```
-Connects to an existing `opencode serve` instance. This is useful for:
-- Debugging the bot separately from the OpenCode server
-- Running multiple clients against the same server
-- Using a remote OpenCode server
+
+### Additional Options
+
+**Session Management**
+```bash
+paca --session SESSION_ID  # Connect to existing session
+```
+If not specified, a new session will be created.
+
+**Model Selection**
+```bash
+paca --model anthropic/claude-3-5-sonnet-20241022
+```
+Specify the OpenCode model to use. If not specified, the default model will be used.
 
 ### Getting Credentials
 
