@@ -14,8 +14,12 @@ from nio.responses import ErrorResponse  # type: ignore
 
 from paca_matrix.bot import PacaBot
 
+DEFAULT_MATRIX_HOMESERVER = "https://matrix.org"
+DEFAULT_BOT_NAME = "paca-bot"
+
 log = logging.getLogger(__name__)
 
+# Global reference for use by _signal_handler
 _bot_instance: PacaBot | None = None
 
 
@@ -44,7 +48,7 @@ def main() -> None:
     logging.getLogger("nio.responses").setLevel(logging.INFO)
 
     if opts.login:
-        asyncio.run(handle_login())
+        asyncio.run(matrix_login())
     else:
         try:
             asyncio.run(run_bot(opts))
@@ -52,10 +56,12 @@ def main() -> None:
             pass
 
 
-async def handle_login() -> None:
-    homeserver = input("Homeserver URL (press Enter for https://matrix.org): ").strip()
+async def matrix_login() -> None:
+    homeserver = input(
+        f"Homeserver URL (default: '{DEFAULT_MATRIX_HOMESERVER}'): "
+    ).strip()
     if not homeserver:
-        homeserver = "https://matrix.org"
+        homeserver = DEFAULT_MATRIX_HOMESERVER
 
     username = input("Username: ").strip()
     if not username:
@@ -67,8 +73,9 @@ async def handle_login() -> None:
         log.error("Password is required")
         return
 
-    device_name = input("Device name (optional, press Enter for 'paca-bot'): ").strip()
-    device_name = device_name or "paca-bot"
+    device_name = input(f"Device name (default: '{DEFAULT_BOT_NAME}'): ").strip()
+    if not device_name:
+        device_name = DEFAULT_BOT_NAME
 
     log.info("Logging in to %s...", homeserver)
     client = AsyncClient(homeserver, user=username)
