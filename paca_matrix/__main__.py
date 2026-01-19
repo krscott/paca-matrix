@@ -117,6 +117,7 @@ async def run_bot(opts: "CliOpts") -> None:
         opts.device_id,
         opts.access_token,
         opencode_server_url=opts.opencode_server_url,
+        session_name=opts.session_name,
     )
     _bot_instance = bot
 
@@ -138,6 +139,7 @@ class CliOpts:
     device_id: str | None
     access_token: str | None
     opencode_server_url: str | None
+    session_name: str | None
 
     @staticmethod
     def parse_args() -> "CliOpts":
@@ -191,6 +193,13 @@ class CliOpts:
             env_var="PACAMATRIX_OPENCODE_SERVER_URL",
             help="OpenCode server URL for serve mode (env: PACAMATRIX_OPENCODE_SERVER_URL). If not set, will use subprocess ACP mode",
         )
+        parser.add_argument(
+            "--session",
+            required=False,
+            action=EnvAction,
+            env_var="PACAMATRIX_SESSION",
+            help="Session ID to connect to (only for serve mode) (env: PACAMATRIX_SESSION). If not set, creates a new session",
+        )
 
         args = parser.parse_args()
 
@@ -209,6 +218,7 @@ class CliOpts:
             device_id=args.device_id,
             access_token=args.access_token,
             opencode_server_url=args.opencode_server_url,
+            session_name=args.session,
         )
 
 

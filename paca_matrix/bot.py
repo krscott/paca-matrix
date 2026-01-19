@@ -23,12 +23,18 @@ OPENCODE_MODEL = "opencode/glm-4.7-free"
 class ACPClient:
     """Client for communicating with OpenCode via Agent Client Protocol (ACP)"""
 
-    def __init__(self, cwd: str | None = None, server_url: str | None = None) -> None:
+    def __init__(
+        self,
+        cwd: str | None = None,
+        server_url: str | None = None,
+        session_name: str | None = None,
+    ) -> None:
         self.process: asyncio.subprocess.Process | None = None
         self.session_id: str | None = None
         self.request_id = 0
         self.cwd = cwd or str(Path.cwd())
         self.server_url = server_url
+        self.session_name = session_name
         self.http_session: aiohttp.ClientSession | None = None
 
     async def start(self) -> None:
@@ -90,7 +96,24 @@ class ACPClient:
         log.info("Connecting to OpenCode server at %s...", self.server_url)
         self.http_session = aiohttp.ClientSession()
 
-        # Create a new session via REST API
+        if self.session_name:
+            # Connect to existing session
+            log.debug("Connecting to session: %s", self.session_name)
+            async with self.http_session.get(
+                f"{self.server_url}/session/{self.session_name}"
+            ) as resp:
+                if resp.status == 200:
+                    session_data = await resp.json()
+                    self.session_id = session_data["id"]
+                    log.info("Connected to existing session: %s", self.session_id)
+                    return
+                else:
+                    text = await resp.text()
+                    raise RuntimeError(
+                        f"Failed to connect to session '{self.session_name}': {resp.status} {text}"
+                    )
+
+        # Create a new session (let OpenCode assign the ID)
         log.debug("Creating new session...")
         async with self.http_session.post(
             f"{self.server_url}/session", json={}
@@ -269,6 +292,7 @@ class EchoBot:
         device_id: str,
         access_token: str,
         opencode_server_url: str | None = None,
+        session_name: str | None = None,
     ) -> None:
         config = AsyncClientConfig(store_sync_tokens=True)
 
@@ -280,7 +304,9 @@ class EchoBot:
             config=config,
         )
         self.client.access_token = access_token
-        self.acp_client = ACPClient(server_url=opencode_server_url)
+        self.acp_client = ACPClient(
+            server_url=opencode_server_url, session_name=session_name
+        )
 
     async def send_to_matrix(self, room: MatrixRoom, message: str) -> None:
         message = message.strip()
