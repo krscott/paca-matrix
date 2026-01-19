@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from paca_matrix.matrix import MatrixBot
+from paca_matrix.matrix import MatrixClient
 
 
 @pytest.fixture
@@ -19,7 +19,7 @@ def mock_async_client():
 
 def test_matrix_bot_initialization(mock_async_client):
     """Test basic initialization."""
-    bot = MatrixBot(
+    bot = MatrixClient(
         homeserver="https://example.com",
         user_id="@bot:example.com",
         device_id="DEVICE123",
@@ -32,7 +32,7 @@ def test_matrix_bot_initialization(mock_async_client):
 
 async def test_send_message(mock_async_client):
     """Test sending a message calls the Matrix client."""
-    bot = MatrixBot(
+    bot = MatrixClient(
         homeserver="https://example.com",
         user_id="@bot:example.com",
         device_id="DEVICE123",
@@ -53,7 +53,7 @@ async def test_send_message(mock_async_client):
 
 async def test_send_empty_message(mock_async_client):
     """Test that empty messages are not sent."""
-    bot = MatrixBot(
+    bot = MatrixClient(
         homeserver="https://example.com",
         user_id="@bot:example.com",
         device_id="DEVICE123",
@@ -71,7 +71,7 @@ async def test_send_empty_message(mock_async_client):
 
 async def test_stop(mock_async_client):
     """Test that stop() closes the client."""
-    bot = MatrixBot(
+    bot = MatrixClient(
         homeserver="https://example.com",
         user_id="@bot:example.com",
         device_id="DEVICE123",

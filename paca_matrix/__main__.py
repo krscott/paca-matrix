@@ -12,11 +12,11 @@ from dotenv import load_dotenv
 from nio import AsyncClient  # pyright: ignore
 from nio.responses import ErrorResponse  # type: ignore
 
-from paca_matrix.bot import EchoBot
+from paca_matrix.bot import PacaBot
 
 log = logging.getLogger(__name__)
 
-_bot_instance: EchoBot | None = None
+_bot_instance: PacaBot | None = None
 
 
 def _signal_handler(signum: int, frame: Any) -> None:
@@ -112,11 +112,11 @@ async def run_bot(opts: "CliOpts") -> None:
         return
 
     global _bot_instance
-    bot = EchoBot(
-        opts.homeserver,
-        opts.user_id,
-        opts.device_id,
-        opts.access_token,
+    bot = PacaBot(
+        homeserver=opts.homeserver,
+        user_id=opts.user_id,
+        device_id=opts.device_id,
+        access_token=opts.access_token,
         opencode_server_url=opts.opencode_server_url,
         session_name=opts.session_name,
     )

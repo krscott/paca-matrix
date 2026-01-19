@@ -2,15 +2,16 @@ import logging
 
 from nio import Event, MatrixRoom, RoomMessageText
 
-from paca_matrix.matrix import MatrixBot
-from paca_matrix.opencode import ACPClient
+from paca_matrix.matrix import MatrixClient
+from paca_matrix.opencode import OpencodeClient
 
 log = logging.getLogger(__name__)
 
 
-class EchoBot:
+class PacaBot:
     def __init__(
         self,
+        *,
         homeserver: str,
         user_id: str,
         device_id: str,
@@ -18,13 +19,13 @@ class EchoBot:
         opencode_server_url: str,
         session_name: str | None = None,
     ) -> None:
-        self.matrix_bot = MatrixBot(
+        self.matrix_bot = MatrixClient(
             homeserver=homeserver,
             user_id=user_id,
             device_id=device_id,
             access_token=access_token,
         )
-        self.acp_client = ACPClient(
+        self.opencode_client = OpencodeClient(
             server_url=opencode_server_url, session_name=session_name
         )
 
@@ -43,7 +44,7 @@ class EchoBot:
         prev_update_type = ""
 
         try:
-            async for update in self.acp_client.prompt_stream(event.body):
+            async for update in self.opencode_client.prompt_stream(event.body):
                 log.debug("opencode: %s", update)
                 update_type = update.get("update", {}).get("sessionUpdate")
 
@@ -75,7 +76,7 @@ class EchoBot:
 
     async def run_forever(self) -> None:
         log.info("Starting bot...")
-        await self.acp_client.start()
+        await self.opencode_client.start()
         await self.matrix_bot.setup_message_handler(self.message_callback)
         log.info("Bot started")
 
@@ -83,6 +84,6 @@ class EchoBot:
 
     async def stop(self) -> None:
         log.info("Stopping bot...")
-        await self.acp_client.stop()
+        await self.opencode_client.stop()
         await self.matrix_bot.stop()
         log.info("Bot stopped")

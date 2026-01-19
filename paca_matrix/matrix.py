@@ -14,7 +14,7 @@ from nio import (
 log = logging.getLogger(__name__)
 
 
-class MatrixBot:
+class MatrixClient:
     def __init__(
         self,
         homeserver: str,

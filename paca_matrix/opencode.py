@@ -7,7 +7,7 @@ import aiohttp
 log = logging.getLogger(__name__)
 
 
-class ACPClient:
+class OpencodeClient:
     """Client for communicating with OpenCode via HTTP"""
 
     def __init__(
