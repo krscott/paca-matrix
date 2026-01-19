@@ -117,19 +117,19 @@ Use `pathlib.Path` instead of `os.path`.
 ### Development Cycle
 1. **Edit**: Make changes following style guidelines
 2. **Verify**:
-   * `./format.sh`
    * `mypy .` (zero errors)
    * `pytest` (write tests for new functionality if practical without too many mocks)
    * `nix flake show '.?submodules=1'` (no nix errors)
+   * `./format.sh`
 3. **Commit**: Only after all checks pass
 
 ### Pre-Commit Checklist
-- [ ] `./format.sh` run
 - [ ] `mypy .` passes
 - [ ] `pytest` passes
 - [ ] `nix flake show '.?submodules=1'` succeeds
 - [ ] New code has type hints and tests
 - [ ] AGENTS.md and README.md updated if outdated
+- [ ] `./format.sh` run
 
 ## 6. Reusable Components
 

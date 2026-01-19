@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 from typing import Any
 
 from nio import Event, MatrixRoom, RoomMessageText
@@ -32,6 +33,8 @@ class PacaBot:
         )
         self.current_room: MatrixRoom | None = None
         self._event_listener_task: asyncio.Task[None] | None = None
+        self._seen_event_ids: set[str] = set()
+        self._start_time_ms: int = int(time.time() * 1000)
 
     async def send_to_matrix(self, room: MatrixRoom, message: str) -> None:
         await self.matrix_bot.send_message(room, message)
@@ -45,6 +48,25 @@ class PacaBot:
             return
         if event.sender == self.matrix_bot.client.user:
             return
+
+        # Skip messages from before bot started (old sync history)
+        server_ts = getattr(event, "server_timestamp", None)
+        if server_ts and server_ts < self._start_time_ms:
+            log.debug(
+                "Skipping old message from %s: timestamp=%d < start=%d",
+                event.sender,
+                server_ts,
+                self._start_time_ms,
+            )
+            return
+
+        # Skip duplicate messages (from sync history)
+        if event.event_id and event.event_id in self._seen_event_ids:
+            log.debug("Skipping duplicate event: %s", event.event_id)
+            return
+
+        if event.event_id:
+            self._seen_event_ids.add(event.event_id)
 
         log.info("Received from %s: %s", event.sender, event.body)
 
