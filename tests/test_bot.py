@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from paca_matrix.bot import EchoBot
+from paca_matrix.bot import ACPClient, EchoBot
 
 
 @pytest.fixture
@@ -22,7 +22,18 @@ def mock_async_client():
 
 
 @pytest.fixture
-def bot(mock_async_client):
+def mock_acp_client():
+    with patch("paca_matrix.bot.ACPClient", autospec=True) as mock:
+        acp_instance = MagicMock()
+        acp_instance.start = AsyncMock()
+        acp_instance.stop = AsyncMock()
+        acp_instance.prompt_stream = AsyncMock()
+        mock.return_value = acp_instance
+        yield mock, acp_instance
+
+
+@pytest.fixture
+def bot(mock_async_client, mock_acp_client):
     _mock, client_instance = mock_async_client
     return EchoBot("https://example.com", "@bot:example.com", "DEVICE123", "test_token")
 
@@ -67,18 +78,25 @@ async def test_bot_stop(bot):
 
 
 async def test_message_callback_from_other_user(bot):
+    from paca_matrix.bot import RoomMessageText
+
     room = MagicMock()
     room.room_id = "!room:example.com"
-    event = MagicMock()
+    event = MagicMock(spec=RoomMessageText)
     event.sender = "@user:example.com"
     event.body = "Hello, bot!"
 
-    mock_proc = AsyncMock()
-    mock_proc.returncode = 0
-    mock_proc.communicate = AsyncMock(return_value=(b"AI response here", b""))
+    async def mock_stream(*args):
+        yield {
+            "update": {
+                "sessionUpdate": "agent_message_chunk",
+                "content": {"type": "text", "text": "AI response here"},
+            }
+        }
 
-    with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
-        await bot.message_callback(room, event)
+    bot.acp_client.prompt_stream = mock_stream
+
+    await bot.message_callback(room, event)
 
     bot.client.room_send.assert_called_once_with(
         room_id="!room:example.com",
@@ -88,9 +106,11 @@ async def test_message_callback_from_other_user(bot):
 
 
 async def test_message_callback_from_self(bot):
+    from paca_matrix.bot import RoomMessageText
+
     room = MagicMock()
     room.room_id = "!room:example.com"
-    event = MagicMock()
+    event = MagicMock(spec=RoomMessageText)
     event.sender = "@bot:example.com"
     event.body = "Hello, myself!"
 

@@ -1,12 +1,174 @@
 import asyncio
+import json
 import logging
+from collections.abc import AsyncIterator
+from pathlib import Path
+from typing import cast
 
-from nio import MatrixRoom  # type: ignore
-from nio import AsyncClient, AsyncClientConfig, RoomMessageText, SyncResponse
+from nio import (
+    AsyncClient,
+    AsyncClientConfig,
+    Event,
+    MatrixRoom,
+    RoomMessageText,
+    SyncResponse,
+)
 
 log = logging.getLogger(__name__)
 
 OPENCODE_MODEL = "opencode/glm-4.7-free"
+
+
+class ACPClient:
+    """Client for communicating with OpenCode via Agent Client Protocol (ACP)"""
+
+    def __init__(self, cwd: str | None = None) -> None:
+        self.process: asyncio.subprocess.Process | None = None
+        self.session_id: str | None = None
+        self.request_id = 0
+        self.cwd = cwd or str(Path.cwd())
+
+    async def start(self) -> None:
+        log.info("Starting OpenCode ACP process...")
+        self.process = await asyncio.create_subprocess_exec(
+            "opencode",
+            "acp",
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+        result = await self._send_request(
+            "initialize",
+            {
+                "protocolVersion": 1,
+                "clientCapabilities": {
+                    "fs": {
+                        "readTextFile": True,
+                        "writeTextFile": True,
+                    },
+                    "terminal": True,
+                },
+                "clientInfo": {
+                    "name": "paca-matrix",
+                    "title": "Paca Matrix Bot",
+                    "version": "0.1.0",
+                },
+            },
+        )
+
+        log.info(
+            "Initialized OpenCode: %s",
+            result.get("agentInfo", {}).get("name", "Unknown"),
+        )
+
+        session_result = await self._send_request(
+            "session/new",
+            {
+                "cwd": self.cwd,
+                "mcpServers": [],
+            },
+        )
+
+        self.session_id = session_result["sessionId"]
+        log.info("Created session: %s", self.session_id)
+
+    async def prompt_stream(self, message: str) -> AsyncIterator[dict]:
+        if not self.session_id:
+            raise RuntimeError("Session not initialized")
+
+        prompt_id = self.request_id
+        self.request_id += 1
+
+        prompt_request = {
+            "jsonrpc": "2.0",
+            "id": prompt_id,
+            "method": "session/prompt",
+            "params": {
+                "sessionId": self.session_id,
+                "prompt": [
+                    {
+                        "type": "text",
+                        "text": message,
+                    }
+                ],
+            },
+        }
+
+        await self._write_message(prompt_request)
+
+        while True:
+            notification = await self._read_message()
+            if (
+                notification.get("method") == "session/update"
+                and notification.get("params", {}).get("sessionId") == self.session_id
+            ):
+                yield notification["params"]
+
+    async def _send_request(self, method: str, params: dict) -> dict:
+        request_id = self.request_id
+        self.request_id += 1
+
+        request = {
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "method": method,
+            "params": params,
+        }
+
+        await self._write_message(request)
+
+        while True:
+            response = await self._read_message()
+            if response.get("id") == request_id:
+                if "error" in response:
+                    raise RuntimeError(f"ACP error: {response['error']}")
+                result = response.get("result")
+                if isinstance(result, dict):
+                    return result
+                return {}
+
+    async def _write_message(self, message: dict) -> None:
+        if not self.process or not self.process.stdin:
+            raise RuntimeError("Process not started")
+
+        data = json.dumps(message)
+        self.process.stdin.write(f"Content-Length: {len(data)}\r\n\r\n{data}".encode())
+        await self.process.stdin.drain()
+
+    async def _read_message(self) -> dict:
+        if not self.process or not self.process.stdout:
+            raise RuntimeError("Process not started")
+
+        headers: dict[str, str] = {}
+        while line_bytes := await self.process.stdout.readline():
+            line = line_bytes.decode().strip()
+            if not line:
+                break
+            key, value = line.split(":", 1)
+            headers[key.strip()] = value.strip()
+
+        content_length = int(headers.get("Content-Length") or "0")
+        if content_length == 0:
+            raise RuntimeError("Invalid message: missing Content-Length")
+
+        data = await self.process.stdout.readexactly(content_length)
+        return cast(dict, json.loads(data.decode()))
+
+    async def stop(self) -> None:
+        if self.process:
+            try:
+                self.process.terminate()
+                await asyncio.wait_for(self.process.wait(), timeout=5.0)
+            except (asyncio.TimeoutError, ProcessLookupError):
+                try:
+                    self.process.kill()
+                    await self.process.wait()
+                except ProcessLookupError:
+                    pass
+            finally:
+                self.process = None
+                log.info("Stopped OpenCode ACP process")
 
 
 class EchoBot:
@@ -27,32 +189,52 @@ class EchoBot:
             config=config,
         )
         self.client.access_token = access_token
+        self.acp_client = ACPClient()
 
-    async def message_callback(self, room: MatrixRoom, event: RoomMessageText) -> None:
+    async def message_callback(self, room: MatrixRoom, event: Event) -> None:
+        if not isinstance(event, RoomMessageText):
+            return
         if event.sender == self.client.user:
             return
 
         log.info("Received message from %s: %s", event.sender, event.body)
 
         try:
-            proc = await asyncio.create_subprocess_exec(
-                "opencode",
-                "-m",
-                OPENCODE_MODEL,
-                "run",
-                event.body,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
+            message_parts = []
+            async for update in self.acp_client.prompt_stream(event.body):
+                update_type = update.get("update", {}).get("sessionUpdate")
 
-            stdout, stderr = await proc.communicate()
+                if update_type == "agent_message_chunk":
+                    content = update.get("update", {}).get("content", {})
+                    if content.get("type") == "text":
+                        text = content.get("text", "")
+                        message_parts.append(text)
 
-            if proc.returncode != 0:
-                error_msg = stderr.decode().strip() or "Unknown error"
-                log.error("Opencode command failed: %s", error_msg)
-                response = f"Error: {error_msg}"
+                elif update_type == "plan":
+                    entries = update.get("update", {}).get("entries", [])
+                    plan_text = "\n".join(
+                        f"- {e.get('content', '')}" for e in entries if e.get("content")
+                    )
+                    if plan_text:
+                        message_parts.append(f"**Plan:**\n{plan_text}")
+
+                elif update_type == "tool_call":
+                    title = update.get("title", "Tool call")
+                    status = update.get("status", "pending")
+                    message_parts.append(f"**{title}**: {status}")
+
+                elif update_type == "tool_call_update":
+                    status = update.get("status", "pending")
+                    content_list = update.get("content", [])
+                    if status == "completed" and content_list:
+                        content = content_list[0].get("content", {})
+                        if content.get("type") == "text":
+                            message_parts.append(content.get("text", ""))
+
+            if message_parts:
+                response = "\n\n".join(message_parts)
             else:
-                response = stdout.decode().strip()
+                response = "No response from OpenCode"
 
             await self.client.room_send(
                 room_id=room.room_id,
@@ -71,7 +253,7 @@ class EchoBot:
 
     async def start(self) -> None:
         log.info("Starting bot...")
-
+        await self.acp_client.start()
         log.info("Bot started")
 
     async def run_forever(self) -> None:
@@ -85,7 +267,7 @@ class EchoBot:
             )
 
         self.client.add_event_callback(
-            self.message_callback,  # pyright: ignore
+            self.message_callback,
             RoomMessageText,
         )
 
@@ -97,5 +279,6 @@ class EchoBot:
 
     async def stop(self) -> None:
         log.info("Stopping bot...")
+        await self.acp_client.stop()
         await self.client.close()
         log.info("Bot stopped")

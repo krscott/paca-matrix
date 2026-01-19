@@ -3,6 +3,7 @@ import asyncio
 import getpass
 import logging
 import os
+import signal
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -15,8 +16,21 @@ from paca_matrix.bot import EchoBot
 
 log = logging.getLogger(__name__)
 
+_bot_instance: EchoBot | None = None
+
+
+def _signal_handler(signum: int, frame: Any) -> None:
+    log.info("Received signal %s, shutting down...", signum)
+    if _bot_instance:
+        loop = asyncio.get_event_loop()
+        loop.create_task(_bot_instance.stop())
+    signal.signal(signum, signal.SIG_DFL)
+    os.kill(os.getpid(), signum)
+
 
 def main() -> None:
+    signal.signal(signal.SIGTERM, _signal_handler)
+
     load_dotenv()
 
     opts = CliOpts.parse_args()
@@ -96,13 +110,16 @@ async def run_bot(opts: "CliOpts") -> None:
         log.info("Or use --login to set up credentials")
         return
 
+    global _bot_instance
     bot = EchoBot(opts.homeserver, opts.user_id, opts.device_id, opts.access_token)
+    _bot_instance = bot
 
     try:
         await bot.run_forever()
     except KeyboardInterrupt:
         log.info("Received interrupt signal")
     finally:
+        _bot_instance = None
         await bot.stop()
 
 
