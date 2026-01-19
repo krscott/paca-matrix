@@ -172,51 +172,32 @@ async def test_message_callback_skips_duplicate_events(
 # Timestamp filtering prevents old messages from sync history being sent to OpenCode.
 
 
-async def test_handle_opencode_event_part_updated(
-    mock_matrix_client: MagicMock, mock_opencode_client: MagicMock
-) -> None:
-    """Test that part.updated events accumulate text."""
-    bot = make_paca_bot()
-    message_parts: list[str] = []
-
-    data: dict[str, Any] = {
-        "type": "part.updated",
-        "properties": {
-            "part": {
-                "type": "text",
-                "text": "Hello, ",
-            }
-        },
-    }
-
-    await bot._handle_opencode_event(
-        data, message_parts, None
-    )  # pyright: ignore[reportPrivateUsage]
-
-    assert message_parts == ["Hello, "]
-
-
 async def test_handle_opencode_event_message_updated_sends_to_matrix(
     mock_matrix_client: MagicMock, mock_opencode_client: MagicMock
 ) -> None:
-    """Test that message.updated after part.updated sends accumulated text to Matrix."""
+    """Test that message.updated sends text to Matrix."""
     bot = make_paca_bot()
     room = MagicMock()
     bot.current_room = room
 
-    message_parts = ["Hello, ", "world!"]
-
     data: dict[str, Any] = {
         "type": "message.updated",
-        "properties": {},
+        "properties": {
+            "info": {"id": "msg_test123"},
+        },
     }
 
-    await bot._handle_opencode_event(
-        data, message_parts, "part.updated"
-    )  # pyright: ignore[reportPrivateUsage]
+    # Mock get_message_parts to return some text
+    from unittest.mock import AsyncMock as mock_async
+
+    mock_opencode_client.get_message_parts = mock_async(
+        return_value=["Hello, ", "world!"]
+    )
+
+    await bot._handle_opencode_event(data)  # pyright: ignore[reportPrivateUsage]
 
     mock_matrix_client.send_message.assert_called_once_with(room, "Hello, world!")
-    assert message_parts == []  # Should be cleared
+    mock_opencode_client.get_message_parts.assert_called_once_with("msg_test123")
 
 
 async def test_handle_opencode_event_no_room_skips_send(
@@ -226,20 +207,46 @@ async def test_handle_opencode_event_no_room_skips_send(
     bot = make_paca_bot()
     bot.current_room = None
 
-    message_parts = ["Hello!"]
+    data: dict[str, Any] = {
+        "type": "message.updated",
+        "properties": {
+            "info": {"id": "msg_test123"},
+        },
+    }
+
+    await bot._handle_opencode_event(data)  # pyright: ignore[reportPrivateUsage]
+
+    mock_matrix_client.send_message.assert_not_called()
+    mock_opencode_client.get_message_parts.assert_called_once_with("msg_test123")
+
+
+async def test_handle_opencode_event_duplicate_message_skips(
+    mock_matrix_client: MagicMock, mock_opencode_client: MagicMock
+) -> None:
+    """Test that duplicate message IDs are skipped."""
+    bot = make_paca_bot()
+    room = MagicMock()
+    bot.current_room = room
 
     data: dict[str, Any] = {
         "type": "message.updated",
-        "properties": {},
+        "properties": {
+            "info": {"id": "msg_test123"},
+        },
     }
 
-    await bot._handle_opencode_event(
-        data, message_parts, "part.updated"
-    )  # pyright: ignore[reportPrivateUsage]
+    from unittest.mock import AsyncMock as mock_async
 
-    mock_matrix_client.send_message.assert_not_called()
-    # Parts should still be there since we couldn't send
-    assert message_parts == ["Hello!"]
+    mock_opencode_client.get_message_parts = mock_async(return_value=["Hello!"])
+
+    # First call should send
+    await bot._handle_opencode_event(data)  # pyright: ignore[reportPrivateUsage]
+    mock_matrix_client.send_message.assert_called_once()
+
+    # Second call with same message ID should be skipped
+    await bot._handle_opencode_event(data)  # pyright: ignore[reportPrivateUsage]
+    # Still only called once
+    mock_matrix_client.send_message.assert_called_once()
 
 
 async def test_stop(

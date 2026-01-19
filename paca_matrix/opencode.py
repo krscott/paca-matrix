@@ -110,6 +110,32 @@ class OpencodeClient:
 
         log.debug("Async message sent successfully")
 
+    async def get_message_parts(self, message_id: str) -> list[str]:
+        """Get all text parts for a message from the session."""
+        if not self.session_id or not self.http_session or not self.server_url:
+            raise RuntimeError("HTTP session not initialized")
+
+        url = f"{self.server_url}/session/{self.session_id}/message/{message_id}"
+        log.debug("Fetching message parts from: %s", url)
+
+        async with self.http_session.get(url) as resp:
+            if resp.status != 200:
+                text = await resp.text()
+                raise RuntimeError(f"HTTP error {resp.status}: {text}")
+
+            message_data = await resp.json()
+
+        # Extract text parts
+        parts: list[str] = []
+        parts_data = message_data.get("parts", [])
+        for part in parts_data:
+            if part.get("type") == "text":
+                text = part.get("text", "")
+                if isinstance(text, str) and text:
+                    parts.append(text)
+
+        return parts
+
     async def subscribe_events(self) -> AsyncIterator[SSEEvent]:
         """Subscribe to the SSE event stream from OpenCode.
 

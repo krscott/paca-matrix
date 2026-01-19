@@ -38,6 +38,7 @@ class PacaBot:
         self._event_listener_task: asyncio.Task[None] | None = None
         self._seen_event_ids: set[str] = set()
         self._start_time_ms: int = int(time.time() * 1000)
+        self._sent_message_ids: set[str] = set()
 
     async def send_to_matrix(self, room: MatrixRoom, message: str) -> None:
         await self.matrix_bot.send_message(room, message)
@@ -91,51 +92,48 @@ class PacaBot:
 
     async def _event_listener(self) -> None:
         """Background task that listens to OpenCode SSE events and forwards messages to Matrix."""
-        message_parts: list[str] = []
-        prev_event_type: str | None = None
-
         try:
             async for sse_event in self.opencode_client.subscribe_events():
-                log.debug("SSE event: %s", sse_event.event)
+                log.info(
+                    "SSE event: %s, data: %s",
+                    sse_event.event,
+                    sse_event.data[:100] if sse_event.data else None,
+                )
 
-                if sse_event.event == "message" and sse_event.data:
+                if sse_event.data:
                     try:
                         data = sse_event.json()
-                        await self._handle_opencode_event(
-                            data, message_parts, prev_event_type
-                        )
-                        prev_event_type = data.get("type")
+                        await self._handle_opencode_event(data)
                     except Exception as e:
-                        log.warning("Failed to parse SSE event data: %s", e)
+                        log.exception("Failed to parse SSE event data: %s", e)
 
         except asyncio.CancelledError:
             log.info("Event listener cancelled")
             raise
 
-    async def _handle_opencode_event(
-        self,
-        data: dict[str, Any],
-        message_parts: list[str],
-        prev_event_type: str | None,
-    ) -> None:
+    async def _handle_opencode_event(self, data: dict[str, Any]) -> None:
         """Process a single OpenCode event and send to Matrix if appropriate."""
         event_type = data.get("type")
         properties: dict[str, Any] = data.get("properties", {}) or {}
 
-        # Handle message part events (text chunks from the agent)
-        if event_type == "part.updated":
-            part: dict[str, Any] = properties.get("part", {}) or {}
-            if part.get("type") == "text":
-                text = part.get("text", "")
-                if isinstance(text, str) and text:
-                    message_parts.append(text)
+        # When a message is updated, fetch the full message and send to Matrix
+        if event_type == "message.updated":
+            message_info: dict[str, Any] = properties.get("info", {}) or {}
+            message_id: str | None = message_info.get("id")
 
-        # When a message completes, send accumulated text to Matrix
-        elif event_type == "message.updated" and prev_event_type == "part.updated":
-            if message_parts and self.current_room:
-                full_message = "".join(message_parts)
-                await self.send_to_matrix(self.current_room, full_message)
-                message_parts.clear()
+            if message_id and message_id not in self._sent_message_ids:
+                try:
+                    parts = await self.opencode_client.get_message_parts(message_id)
+                    full_message = "".join(parts)
+
+                    if full_message and self.current_room:
+                        log.info("Sending message to Matrix: %s", full_message[:100])
+                        await self.send_to_matrix(self.current_room, full_message)
+                        self._sent_message_ids.add(message_id)
+                except Exception as e:
+                    log.exception(
+                        "Failed to fetch and send message %s: %s", message_id, e
+                    )
 
     async def run_forever(self) -> None:
         log.info("Starting bot...")
