@@ -19,19 +19,23 @@ This is a Matrix bot that forwards messages to OpenCode for processing. The bot 
 
 ### Project Structure
 
-- `paca_matrix/bot.py` - ACPClient for OpenCode communication and EchoBot for Matrix message handling
+- `paca_matrix/bot.py` - PacaBot that orchestrates Matrix and OpenCode communication, handles questions
+- `paca_matrix/matrix.py` - MatrixClient for Matrix homeserver communication
+- `paca_matrix/opencode.py` - OpencodeClient for OpenCode HTTP API and SSE event stream
 - `paca_matrix/__main__.py` - CLI entry point with argparse and EnvAction
 - `tests/test_bot.py` - Bot unit tests using pytest and pytest-asyncio
+- `tests/test_matrix.py` - MatrixClient tests
+- `tests/test_opencode.py` - OpencodeClient tests
 - `tests/test_env_action.py` - Tests for EnvAction argument parser
 
 ### OpenCode Integration
 
-The bot can connect to OpenCode in two modes:
+The bot connects to OpenCode via HTTP mode to an `opencode serve` instance:
 
-1. **Subprocess (ACP) mode** (default): Starts `opencode acp` as a subprocess with stdio communication
-2. **HTTP (serve) mode**: Connects to an existing `opencode serve` instance via HTTP REST API
-
-Use `--opencode-server-url` (or `PACAMATRIX_OPENCODE_SERVER_URL`) to specify an HTTP server URL.
+- **HTTP mode**: Connects to an existing `opencode serve` instance via HTTP REST API and SSE event stream
+- Required: `--opencode-server-url` (or `PACAMATRIX_OPENCODE_SERVER_URL`) to specify the server URL
+- Supports session management with `--session` to connect to existing sessions
+- Supports model selection with `--model` to specify the OpenCode model to use
 
 ## 2. Environment & Dependencies
 
@@ -77,7 +81,7 @@ def log_messages(messages: list[str | None]) -> None:
 Avoid `Any` and `# type: ignore` unless necessary.
 
 ### Imports
-* Absolute imports preferred: `from paca_matrix.bot import EchoBot`
+* Absolute imports preferred: `from paca_matrix.bot import PacaBot`
 * isort handles organization automatically
 
 ### Error Handling
