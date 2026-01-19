@@ -441,8 +441,10 @@ async def test_handle_bang_command_echo_with_message(
     room = MagicMock()
     bot.current_room = room
 
-    result, message_to_send = await bot._handle_bang_command(  # pyright: ignore[reportPrivateUsage]
-        "!echo hello world"
+    result, message_to_send = (
+        await bot._handle_bang_command(  # pyright: ignore[reportPrivateUsage]
+            "!echo hello world"
+        )
     )
 
     assert result is True
@@ -459,9 +461,9 @@ async def test_handle_bang_command_echo_no_message(
     room = MagicMock()
     bot.current_room = room
 
-    result, message_to_send = await bot._handle_bang_command(  # pyright: ignore[reportPrivateUsage]
+    result, message_to_send = await bot._handle_bang_command(
         "!echo"
-    )
+    )  # pyright: ignore[reportPrivateUsage]
 
     assert result is True
     assert message_to_send is None
@@ -478,9 +480,9 @@ async def test_handle_bang_command_stop(
     bot.current_room = room
     mock_opencode_client.abort_session = AsyncMock()
 
-    result, message_to_send = await bot._handle_bang_command(  # pyright: ignore[reportPrivateUsage]
+    result, message_to_send = await bot._handle_bang_command(
         "!stop"
-    )
+    )  # pyright: ignore[reportPrivateUsage]
 
     assert result is True
     assert message_to_send is None
@@ -496,11 +498,13 @@ async def test_handle_bang_command_stop_error(
     bot = make_paca_bot()
     room = MagicMock()
     bot.current_room = room
-    mock_opencode_client.abort_session = AsyncMock(side_effect=RuntimeError("Session error"))
-
-    result, message_to_send = await bot._handle_bang_command(  # pyright: ignore[reportPrivateUsage]
-        "!stop"
+    mock_opencode_client.abort_session = AsyncMock(
+        side_effect=RuntimeError("Session error")
     )
+
+    result, message_to_send = await bot._handle_bang_command(
+        "!stop"
+    )  # pyright: ignore[reportPrivateUsage]
 
     assert result is True
     assert message_to_send is None
@@ -517,8 +521,10 @@ async def test_handle_bang_command_unknown(
     room = MagicMock()
     bot.current_room = room
 
-    result, message_to_send = await bot._handle_bang_command(  # pyright: ignore[reportPrivateUsage]
-        "!unknown command"
+    result, message_to_send = (
+        await bot._handle_bang_command(  # pyright: ignore[reportPrivateUsage]
+            "!unknown command"
+        )
     )
 
     assert result is True
@@ -534,9 +540,9 @@ async def test_handle_bang_command_double_bang(
     """Test that !! sends message to OpenCode (escape)."""
     bot = make_paca_bot()
 
-    handled, message_to_send = await bot._handle_bang_command(  # pyright: ignore[reportPrivateUsage]
+    handled, message_to_send = await bot._handle_bang_command(
         "!!help"
-    )
+    )  # pyright: ignore[reportPrivateUsage]
 
     assert handled is False  # Not handled, falls through to OpenCode
     assert message_to_send == "!help"  # One bang stripped
@@ -554,6 +560,7 @@ async def test_message_callback_bang_command(
     room.room_id = "!room:example.com"
 
     from nio import RoomMessageText
+
     event = MagicMock(spec=RoomMessageText)
     event.event_id = "$event1"
     event.sender = "@user:example.com"
@@ -581,6 +588,7 @@ async def test_message_callback_normal_message_forwarded(
     room.room_id = "!room:example.com"
 
     from nio import RoomMessageText
+
     event = MagicMock(spec=RoomMessageText)
     event.event_id = "$event1"
     event.sender = "@user:example.com"
@@ -607,6 +615,7 @@ async def test_message_callback_double_bang_forwarded(
     room.room_id = "!room:example.com"
 
     from nio import RoomMessageText
+
     event = MagicMock(spec=RoomMessageText)
     event.event_id = "$event1"
     event.sender = "@user:example.com"
@@ -633,6 +642,7 @@ async def test_message_callback_unknown_command_error(
     room.room_id = "!room:example.com"
 
     from nio import RoomMessageText
+
     event = MagicMock(spec=RoomMessageText)
     event.event_id = "$event1"
     event.sender = "@user:example.com"

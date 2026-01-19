@@ -97,7 +97,9 @@ class PacaBot:
         message_to_send = event.body
         # Check if this is a bang command
         if event.body.startswith("!"):
-            command_handled, message_to_send = await self._handle_bang_command(event.body)
+            command_handled, message_to_send = await self._handle_bang_command(
+                event.body
+            )
             if command_handled:
                 return
 
@@ -199,7 +201,9 @@ class PacaBot:
         if command == "!echo":
             if len(args) == 0:
                 if self.current_room:
-                    await self.send_to_matrix(self.current_room, "Usage: !echo <message>")
+                    await self.send_to_matrix(
+                        self.current_room, "Usage: !echo <message>"
+                    )
                 return True, None
             echo_msg = args[0]
             if self.current_room:
@@ -215,20 +219,26 @@ class PacaBot:
             except Exception as e:
                 log.exception("Error stopping agent: %s", e)
                 if self.current_room:
-                    await self.send_to_matrix(self.current_room, f"Error stopping agent: {e}")
+                    await self.send_to_matrix(
+                        self.current_room, f"Error stopping agent: {e}"
+                    )
                 return True, None
 
         if command == "!kill":
             try:
                 await self.opencode_client.abort_session()
                 if self.current_room:
-                    await self.send_to_matrix(self.current_room, "Agent killed. Exiting...")
+                    await self.send_to_matrix(
+                        self.current_room, "Agent killed. Exiting..."
+                    )
                 self._should_exit = True
                 return True, None
             except Exception as e:
                 log.exception("Error killing agent: %s", e)
                 if self.current_room:
-                    await self.send_to_matrix(self.current_room, f"Error killing agent: {e}")
+                    await self.send_to_matrix(
+                        self.current_room, f"Error killing agent: {e}"
+                    )
                 return True, None
 
         # Unknown command - send error
