@@ -162,7 +162,7 @@ class ACPClient:
             raise RuntimeError("Process closed unexpectedly")
 
         line = line_bytes.decode().strip()
-        log.debug("Received: %s", line)
+        # log.debug("From opencode: %s", line)
         msg = json.loads(line)
         assert isinstance(msg, dict)
         return cast(dict[str, Any], msg)
@@ -213,8 +213,10 @@ class EchoBot:
 
         try:
             message_parts: list[str] = []
+            prev_update_type = ""
+
             async for update in self.acp_client.prompt_stream(event.body):
-                log.debug(str(update))
+                log.debug("opencode: %s", update)
                 update_type = update.get("update", {}).get("sessionUpdate")
 
                 if update_type == "agent_message_chunk":
@@ -245,18 +247,26 @@ class EchoBot:
                         if content.get("type") == "text":
                             message_parts.append(content.get("text", ""))
 
-            if message_parts:
-                response = "".join(message_parts).strip()
-            else:
-                response = "No response from OpenCode"
+                if (
+                    update_type != prev_update_type
+                    and prev_update_type == "agent_message_chunk"
+                ):
+                    if message_parts:
+                        response = "".join(message_parts).strip()
+                        message_parts.clear()
+                    else:
+                        response = "No response from OpenCode"
 
-            await self.client.room_send(
-                room_id=room.room_id,
-                message_type="m.room.message",
-                content={"msgtype": "m.text", "body": response},
-            )
+                    await self.client.room_send(
+                        room_id=room.room_id,
+                        message_type="m.room.message",
+                        content={"msgtype": "m.text", "body": response},
+                    )
 
-            log.info("Sending to %s: %s", room.room_id, response)
+                    log.info("Sending to %s: %s", room.room_id, response)
+
+                prev_update_type = update_type
+
         except Exception as e:
             log.exception("Error processing message: %s", e)
             await self.client.room_send(
