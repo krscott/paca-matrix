@@ -138,10 +138,8 @@ class ACPClient:
             if response.get("id") == request_id:
                 if "error" in response:
                     raise RuntimeError(f"ACP error: {response['error']}")
-                result = response.get("result")
-                if result:
-                    return result
-                return {}
+                result: dict[str, Any] = response.get("result", {})
+                return result
 
     async def _write_message(self, message: dict[str, Any]) -> None:
         if not self.process or not self.process.stdin:
@@ -263,13 +261,10 @@ class EchoBot:
                 content={"msgtype": "m.text", "body": f"Error processing message: {e}"},
             )
 
-    async def start(self) -> None:
+    async def run_forever(self) -> None:
         log.info("Starting bot...")
         await self.acp_client.start()
         log.info("Bot started")
-
-    async def run_forever(self) -> None:
-        await self.start()
 
         response = await self.client.sync()
         if isinstance(response, SyncResponse):
