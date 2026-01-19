@@ -47,6 +47,11 @@ class MatrixClient:
             content={"msgtype": "m.text", "body": message},
         )
 
+    async def read_receipt(self, room_id: str, event_id: str) -> None:
+        await self.client.room_read_markers(
+            room_id=room_id, fully_read_event=event_id, read_event=event_id
+        )
+
     async def setup_message_handler(
         self, callback: Callable[[MatrixRoom, Event], Awaitable[None]]
     ) -> None:

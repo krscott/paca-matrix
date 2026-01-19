@@ -14,6 +14,7 @@ def mock_matrix_client():
         matrix_bot_instance.client = MagicMock()
         matrix_bot_instance.client.user = "@bot:example.com"
         matrix_bot_instance.send_message = AsyncMock()
+        matrix_bot_instance.read_receipt = AsyncMock()
         matrix_bot_instance.stop = AsyncMock()
         mock.return_value = matrix_bot_instance
         yield matrix_bot_instance
@@ -102,6 +103,10 @@ async def test_message_callback_forwards_to_opencode(
     mock_opencode_client.prompt_async.assert_called_once_with("Hello, bot!")
     # Should track the current room
     assert bot.current_room == room
+    # Should mark message as read
+    mock_matrix_client.read_receipt.assert_called_once_with(
+        "!test:example.com", "$event1"
+    )
 
 
 async def test_message_callback_updates_current_room(

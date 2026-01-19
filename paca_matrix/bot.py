@@ -91,6 +91,10 @@ class PacaBot:
 
         log.info("Received from %s: %s", event.sender, event.body)
 
+        # Mark message as read
+        if event.event_id:
+            await self.matrix_bot.read_receipt(room.room_id, event.event_id)
+
         # Track the current room for sending OpenCode responses
         self.current_room = room
 
