@@ -285,10 +285,6 @@ async def test_handle_question_event(
                     "multiple": False,
                 }
             ],
-            "tool": {
-                "messageID": "msg_question1",
-                "callID": "call_123",
-            },
         },
     }
 
@@ -296,7 +292,7 @@ async def test_handle_question_event(
 
     # Check that question was stored
     assert bot._pending_question is not None  # type: ignore[reportPrivateUsage]
-    assert bot._pending_question.message_id == "msg_question1"  # type: ignore[reportPrivateUsage]
+    assert bot._pending_question.request_id == "que_question1"  # type: ignore[reportPrivateUsage]
     assert bot._pending_question.question == "Which framework do you prefer?"  # type: ignore[reportPrivateUsage]
     assert len(bot._pending_question.options) == 3  # type: ignore[reportPrivateUsage]
     assert bot._pending_question.options[0].label == "React"  # type: ignore[reportPrivateUsage]
@@ -320,7 +316,7 @@ async def test_handle_question_response_single_select(
     room = MagicMock()
     bot.current_room = room
     bot._pending_question = PendingQuestion(  # type: ignore[reportPrivateUsage]
-        message_id="msg_q1",
+        request_id="que_q1",
         question="Test question?",
         options=[
             QuestionOption(label="Option A", description=""),
@@ -328,15 +324,15 @@ async def test_handle_question_response_single_select(
         ],
         multiple=False,
     )
-    mock_opencode_client.answer_question = AsyncMock()
+    mock_opencode_client.reply_question = AsyncMock()
 
     # Send valid response
     result = await bot._handle_question_response("1")  # pyright: ignore[reportPrivateUsage]
 
     assert result is True
-    mock_opencode_client.answer_question.assert_called_once_with(
-        message_id="msg_q1",
-        indices=[0],
+    mock_opencode_client.reply_question.assert_called_once_with(
+        request_id="que_q1",
+        answers=[["Option A"]],
     )
     assert bot._pending_question is None  # type: ignore[reportPrivateUsage]
 
@@ -349,7 +345,7 @@ async def test_handle_question_response_multiple_select(
     room = MagicMock()
     bot.current_room = room
     bot._pending_question = PendingQuestion(  # type: ignore[reportPrivateUsage]
-        message_id="msg_q2",
+        request_id="que_q2",
         question="Select all that apply?",
         options=[
             QuestionOption(label="A", description=""),
@@ -358,15 +354,15 @@ async def test_handle_question_response_multiple_select(
         ],
         multiple=True,
     )
-    mock_opencode_client.answer_question = AsyncMock()
+    mock_opencode_client.reply_question = AsyncMock()
 
     # Send valid response
     result = await bot._handle_question_response("1,3")  # pyright: ignore[reportPrivateUsage]
 
     assert result is True
-    mock_opencode_client.answer_question.assert_called_once_with(
-        message_id="msg_q2",
-        indices=[0, 2],
+    mock_opencode_client.reply_question.assert_called_once_with(
+        request_id="que_q2",
+        answers=[["A", "C"]],
     )
     assert bot._pending_question is None  # type: ignore[reportPrivateUsage]
 
@@ -379,7 +375,7 @@ async def test_handle_question_response_invalid_index(
     room = MagicMock()
     bot.current_room = room
     bot._pending_question = PendingQuestion(  # type: ignore[reportPrivateUsage]
-        message_id="msg_q3",
+        request_id="que_q3",
         question="Test question?",
         options=[
             QuestionOption(label="A", description=""),
@@ -387,13 +383,13 @@ async def test_handle_question_response_invalid_index(
         ],
         multiple=False,
     )
-    mock_opencode_client.answer_question = AsyncMock()
+    mock_opencode_client.reply_question = AsyncMock()
 
     # Send invalid response (out of range)
     result = await bot._handle_question_response("5")  # pyright: ignore[reportPrivateUsage]
 
     assert result is True
-    mock_opencode_client.answer_question.assert_not_called()
+    mock_opencode_client.reply_question.assert_not_called()
     assert bot._pending_question is not None  # type: ignore[reportPrivateUsage]  # Question remains pending
 
     # Check error message sent to Matrix
@@ -406,19 +402,21 @@ async def test_handle_question_response_non_numeric(
 ) -> None:
     """Test that non-numeric responses are not handled as question responses."""
     bot = make_paca_bot()
+    room = MagicMock()
+    bot.current_room = room
     bot._pending_question = PendingQuestion(  # type: ignore[reportPrivateUsage]
-        message_id="msg_q4",
+        request_id="que_q4",
         question="Test question?",
         options=[
             QuestionOption(label="A", description=""),
         ],
         multiple=False,
     )
-    mock_opencode_client.answer_question = AsyncMock()
+    mock_opencode_client.reply_question = AsyncMock()
 
     # Send non-numeric response
     result = await bot._handle_question_response("I don't know")  # pyright: ignore[reportPrivateUsage]
 
     assert result is False  # Not handled as question response
-    mock_opencode_client.answer_question.assert_not_called()
+    mock_opencode_client.reply_question.assert_not_called()
     assert bot._pending_question is not None  # type: ignore[reportPrivateUsage]  # Question remains pending

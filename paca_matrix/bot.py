@@ -20,7 +20,7 @@ class QuestionOption:
 
 @dataclass
 class PendingQuestion:
-    message_id: str
+    request_id: str
     question: str
     options: list[QuestionOption]
     multiple: bool
@@ -152,13 +152,16 @@ class PacaBot:
                 )
             return True
 
-        # Submit answer to OpenCode
+        # Convert indices to labels for sending to OpenCode
+        labels = [self._pending_question.options[i].label for i in valid_indices]
+
+        # Send answer via question reply endpoint
         try:
-            await self.opencode_client.answer_question(
-                message_id=self._pending_question.message_id,
-                indices=valid_indices,
+            await self.opencode_client.reply_question(
+                request_id=self._pending_question.request_id,
+                answers=[labels],
             )
-            log.info("Submitted question answer: %s", valid_indices)
+            log.info("Submitted question answer: %s (indices: %s)", labels, valid_indices)
             self._pending_question = None
             return True
         except Exception as e:
@@ -192,14 +195,13 @@ class PacaBot:
 
     async def _handle_question_event(self, properties: dict[str, Any]) -> None:
         """Handle question events from OpenCode and send to Matrix as numbered list."""
-        tool: dict[str, Any] = properties.get("tool", {}) or {}
+        request_id: str = properties.get("id", "")
         questions: list[dict[str, Any]] = properties.get("questions", [])
 
-        if not questions or not tool:
-            log.warning("Invalid question event: missing questions or tool info")
+        if not questions:
+            log.warning("Invalid question event: missing questions")
             return
 
-        message_id: str = tool.get("messageID", "")
         question_data: dict[str, Any] = questions[0]
         question: str = question_data.get("question", "")
         header: str = question_data.get("header", "")
@@ -220,7 +222,7 @@ class PacaBot:
 
         # Store pending question
         self._pending_question = PendingQuestion(
-            message_id=message_id,
+            request_id=request_id,
             question=question,
             options=options,
             multiple=multiple,
