@@ -22,9 +22,12 @@ def main() -> None:
     opts = CliOpts.parse_args()
 
     logging.basicConfig(
-        level=logging.DEBUG if opts.verbose else logging.INFO,
+        level=logging.INFO,
         format="%(message)s",
     )
+
+    if opts.verbose:
+        log.setLevel(logging.DEBUG)
 
     if opts.login:
         asyncio.run(handle_login())

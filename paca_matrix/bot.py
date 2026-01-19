@@ -32,7 +32,7 @@ class EchoBot:
         if event.sender == self.client.user:
             return
 
-        log.debug("Received message from %s: %s", event.sender, event.body)
+        log.info("Received message from %s: %s", event.sender, event.body)
 
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -60,7 +60,7 @@ class EchoBot:
                 content={"msgtype": "m.text", "body": response},
             )
 
-            log.debug("Sent response back to %s", room.room_id)
+            log.info("Sent response back to %s", room.room_id)
         except Exception as e:
             log.exception("Error processing message: %s", e)
             await self.client.room_send(
