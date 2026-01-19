@@ -197,7 +197,7 @@ class EchoBot:
         if event.sender == self.client.user:
             return
 
-        log.info("Received message from %s: %s", event.sender, event.body)
+        log.info("Received from %s: %s", event.sender, event.body)
 
         try:
             message_parts = []
@@ -242,7 +242,7 @@ class EchoBot:
                 content={"msgtype": "m.text", "body": response},
             )
 
-            log.info("Sent response back to %s", room.room_id)
+            log.info("Sending to %s: %s", room.room_id, response)
         except Exception as e:
             log.exception("Error processing message: %s", e)
             await self.client.room_send(
