@@ -205,6 +205,18 @@ class PacaBot:
                 await self.send_to_matrix(self.current_room, f"Echo: {echo_msg}")
             return True, None
 
+        if command == "!stop":
+            try:
+                await self.opencode_client.abort_session()
+                if self.current_room:
+                    await self.send_to_matrix(self.current_room, "Agent stopped.")
+                return True, None
+            except Exception as e:
+                log.exception("Error stopping agent: %s", e)
+                if self.current_room:
+                    await self.send_to_matrix(self.current_room, f"Error stopping agent: {e}")
+                return True, None
+
         # Unknown command - send error
         if self.current_room:
             await self.send_to_matrix(

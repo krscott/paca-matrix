@@ -247,6 +247,21 @@ class OpencodeClient:
 
         log.debug("Question reply submitted successfully")
 
+    async def abort_session(self) -> None:
+        """Abort the current running session."""
+        if not self.session_id or not self.http_session or not self.server_url:
+            raise RuntimeError("HTTP session not initialized")
+
+        url = f"{self.server_url}/session/{self.session_id}/abort"
+        log.debug("Aborting session: %s", url)
+
+        async with self.http_session.post(url) as resp:
+            if resp.status != 200:
+                text = await resp.text()
+                raise RuntimeError(f"HTTP error {resp.status}: {text}")
+
+        log.info("Session aborted successfully")
+
     async def stop(self) -> None:
         if self.http_session:
             await self.http_session.close()

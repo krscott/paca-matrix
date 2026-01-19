@@ -469,6 +469,46 @@ async def test_handle_bang_command_echo_no_message(
     assert call_args[0][1] == "Usage: !echo <message>"
 
 
+async def test_handle_bang_command_stop(
+    mock_matrix_client: MagicMock, mock_opencode_client: MagicMock
+) -> None:
+    """Test that !stop command aborts the session."""
+    bot = make_paca_bot()
+    room = MagicMock()
+    bot.current_room = room
+    mock_opencode_client.abort_session = AsyncMock()
+
+    result, message_to_send = await bot._handle_bang_command(  # pyright: ignore[reportPrivateUsage]
+        "!stop"
+    )
+
+    assert result is True
+    assert message_to_send is None
+    mock_opencode_client.abort_session.assert_called_once()
+    call_args = bot.matrix_bot.send_message.call_args  # type: ignore[reportPrivateUsage]
+    assert call_args[0][1] == "Agent stopped."
+
+
+async def test_handle_bang_command_stop_error(
+    mock_matrix_client: MagicMock, mock_opencode_client: MagicMock
+) -> None:
+    """Test that !stop command handles errors gracefully."""
+    bot = make_paca_bot()
+    room = MagicMock()
+    bot.current_room = room
+    mock_opencode_client.abort_session = AsyncMock(side_effect=RuntimeError("Session error"))
+
+    result, message_to_send = await bot._handle_bang_command(  # pyright: ignore[reportPrivateUsage]
+        "!stop"
+    )
+
+    assert result is True
+    assert message_to_send is None
+    mock_opencode_client.abort_session.assert_called_once()
+    call_args = bot.matrix_bot.send_message.call_args  # type: ignore[reportPrivateUsage]
+    assert "Error stopping agent" in call_args[0][1]
+
+
 async def test_handle_bang_command_unknown(
     mock_matrix_client: MagicMock, mock_opencode_client: MagicMock
 ) -> None:

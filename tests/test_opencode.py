@@ -46,3 +46,12 @@ async def test_acp_client_stop_no_session():
     # Should not raise error
     await client.stop()
     assert client.http_session is None
+
+
+async def test_acp_client_abort_session_no_session():
+    """Test that abort_session raises error when session not initialized."""
+    client = OpencodeClient("http://localhost:8080")
+    # Don't set session_id or http_session
+
+    with pytest.raises(RuntimeError, match="HTTP session not initialized"):
+        await client.abort_session()
