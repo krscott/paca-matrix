@@ -4,6 +4,7 @@
   lib,
   python-dotenv,
   matrix-nio,
+  aiohttp,
   setuptools,
   pytest,
   pytest-asyncio,
@@ -18,6 +19,7 @@ buildPythonApplication {
   propagatedBuildInputs = [
     python-dotenv
     matrix-nio
+    aiohttp
   ];
 
   nativeCheckInputs = [

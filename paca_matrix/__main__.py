@@ -111,7 +111,13 @@ async def run_bot(opts: "CliOpts") -> None:
         return
 
     global _bot_instance
-    bot = EchoBot(opts.homeserver, opts.user_id, opts.device_id, opts.access_token)
+    bot = EchoBot(
+        opts.homeserver,
+        opts.user_id,
+        opts.device_id,
+        opts.access_token,
+        opencode_server_url=opts.opencode_server_url,
+    )
     _bot_instance = bot
 
     try:
@@ -131,6 +137,7 @@ class CliOpts:
     user_id: str | None
     device_id: str | None
     access_token: str | None
+    opencode_server_url: str | None
 
     @staticmethod
     def parse_args() -> "CliOpts":
@@ -177,6 +184,13 @@ class CliOpts:
             env_var="PACAMATRIX_DEVICE_ID",
             help="Matrix device ID (env: PACAMATRIX_DEVICE_ID)",
         )
+        parser.add_argument(
+            "--opencode-server-url",
+            required=False,
+            action=EnvAction,
+            env_var="PACAMATRIX_OPENCODE_SERVER_URL",
+            help="OpenCode server URL for serve mode (env: PACAMATRIX_OPENCODE_SERVER_URL). If not set, will use subprocess ACP mode",
+        )
 
         args = parser.parse_args()
 
@@ -194,6 +208,7 @@ class CliOpts:
             user_id=args.user_id,
             device_id=args.device_id,
             access_token=args.access_token,
+            opencode_server_url=args.opencode_server_url,
         )
 
 

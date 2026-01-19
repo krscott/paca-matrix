@@ -6,6 +6,7 @@ requires-python = ">=3.10.12"
 dependencies = [
     "python-dotenv~=1.0",
     "matrix-nio[e2e]>=0.24",
+    "aiohttp~=3.9",
 ]
 
 [project.optional-dependencies]

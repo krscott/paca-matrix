@@ -15,14 +15,23 @@ Python project managed with **Nix**. Dev environment assumed active.
 
 ## 1. Project Overview
 
-This is a Matrix echo bot using the matrix-nio library. The bot connects to a Matrix homeserver and echoes back messages it receives in rooms.
+This is a Matrix bot that forwards messages to OpenCode for processing. The bot connects to a Matrix homeserver and sends messages to OpenCode, streaming responses back to Matrix.
 
 ### Project Structure
 
-- `paca_matrix/bot.py` - EchoBot class implementing Matrix message handling
+- `paca_matrix/bot.py` - ACPClient for OpenCode communication and EchoBot for Matrix message handling
 - `paca_matrix/__main__.py` - CLI entry point with argparse and EnvAction
 - `tests/test_bot.py` - Bot unit tests using pytest and pytest-asyncio
 - `tests/test_env_action.py` - Tests for EnvAction argument parser
+
+### OpenCode Integration
+
+The bot can connect to OpenCode in two modes:
+
+1. **Subprocess (ACP) mode** (default): Starts `opencode acp` as a subprocess with stdio communication
+2. **HTTP (serve) mode**: Connects to an existing `opencode serve` instance via HTTP REST API
+
+Use `--opencode-server-url` (or `PACAMATRIX_OPENCODE_SERVER_URL`) to specify an HTTP server URL.
 
 ## 2. Environment & Dependencies
 

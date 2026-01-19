@@ -1,12 +1,13 @@
 # paca-matrix
 
-A Matrix echo bot implementation using matrix-nio.
+A Matrix bot that connects Matrix rooms to OpenCode for AI-powered responses.
 
 ## Features
 
-- Echoes back messages received in Matrix rooms
+- Forwards Matrix messages to OpenCode and streams responses back
 - Async implementation using Python asyncio
 - E2E encryption support via matrix-nio
+- Supports both subprocess (`opencode acp`) and HTTP (`opencode serve`) modes
 
 ## Installation
 
@@ -60,7 +61,9 @@ Create a `.env` file or set environment variables:
 PACAMATRIX_HOMESERVER=https://matrix.org
 PACAMATRIX_USER_ID=@bot:example.com
 PACAMATRIX_ACCESS_TOKEN=YOUR_TOKEN
+PACAMATRIX_DEVICE_ID=YOUR_DEVICE_ID
 PACAMATRIX_VERBOSE=1  # Optional: Enable debug logging
+PACAMATRIX_OPENCODE_SERVER_URL=http://127.0.0.1:8765  # Optional: Connect to opencode serve
 ```
 
 Then run:
@@ -68,6 +71,32 @@ Then run:
 ```bash
 paca
 ```
+
+### OpenCode Server Modes
+
+The bot can connect to OpenCode in two ways:
+
+**1. Subprocess mode (default)**
+```bash
+paca
+```
+Automatically starts `opencode acp` as a subprocess. This is the default behavior.
+
+**2. HTTP serve mode**
+```bash
+# In one terminal, start opencode serve
+opencode serve --port 8765
+
+# In another terminal, run the bot with server URL
+paca --opencode-server-url http://127.0.0.1:8765
+
+# Or using environment variable
+PACAMATRIX_OPENCODE_SERVER_URL=http://127.0.0.1:8765 paca
+```
+Connects to an existing `opencode serve` instance. This is useful for:
+- Debugging the bot separately from the OpenCode server
+- Running multiple clients against the same server
+- Using a remote OpenCode server
 
 ### Getting Credentials
 

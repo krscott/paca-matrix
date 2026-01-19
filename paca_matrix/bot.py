@@ -5,6 +5,7 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any, cast
 
+import aiohttp
 from nio import (
     AsyncClient,
     AsyncClientConfig,
@@ -22,13 +23,21 @@ OPENCODE_MODEL = "opencode/glm-4.7-free"
 class ACPClient:
     """Client for communicating with OpenCode via Agent Client Protocol (ACP)"""
 
-    def __init__(self, cwd: str | None = None) -> None:
+    def __init__(self, cwd: str | None = None, server_url: str | None = None) -> None:
         self.process: asyncio.subprocess.Process | None = None
         self.session_id: str | None = None
         self.request_id = 0
         self.cwd = cwd or str(Path.cwd())
+        self.server_url = server_url
+        self.http_session: aiohttp.ClientSession | None = None
 
     async def start(self) -> None:
+        if self.server_url:
+            await self._start_http()
+        else:
+            await self._start_subprocess()
+
+    async def _start_subprocess(self) -> None:
         log.info("Starting OpenCode ACP process...")
         self.process = await asyncio.create_subprocess_exec(
             "opencode",
@@ -77,6 +86,22 @@ class ACPClient:
         self.session_id = session_result["sessionId"]
         log.info("Created session: %s", self.session_id)
 
+    async def _start_http(self) -> None:
+        log.info("Connecting to OpenCode server at %s...", self.server_url)
+        self.http_session = aiohttp.ClientSession()
+
+        # Create a new session via REST API
+        log.debug("Creating new session...")
+        async with self.http_session.post(
+            f"{self.server_url}/session", json={}
+        ) as resp:
+            if resp.status != 200:
+                text = await resp.text()
+                raise RuntimeError(f"Failed to create session: {resp.status} {text}")
+            session_data = await resp.json()
+            self.session_id = session_data["id"]
+            log.info("Created session: %s", self.session_id)
+
     async def _log_stderr(self) -> None:
         if not self.process or not self.process.stderr:
             return
@@ -87,6 +112,16 @@ class ACPClient:
             log.debug("OpenCode stderr: %s", line.decode().strip())
 
     async def prompt_stream(self, message: str) -> AsyncIterator[dict[str, Any]]:
+        if self.server_url:
+            async for update in self._prompt_stream_http(message):
+                yield update
+        else:
+            async for update in self._prompt_stream_subprocess(message):
+                yield update
+
+    async def _prompt_stream_subprocess(
+        self, message: str
+    ) -> AsyncIterator[dict[str, Any]]:
         if not self.session_id:
             raise RuntimeError("Session not initialized")
 
@@ -120,6 +155,44 @@ class ACPClient:
                     yield cast(dict[str, Any], params)
             elif msg.get("method") == "session/end":
                 return
+
+    async def _prompt_stream_http(self, message: str) -> AsyncIterator[dict[str, Any]]:
+        if not self.session_id or not self.http_session or not self.server_url:
+            raise RuntimeError("HTTP session not initialized")
+
+        # Send message using synchronous endpoint
+        message_url = f"{self.server_url}/session/{self.session_id}/message"
+        log.debug("Sending message to: %s", message_url)
+
+        async with self.http_session.post(
+            message_url,
+            json={
+                "parts": [{"type": "text", "text": message}],
+            },
+        ) as resp:
+            if resp.status != 200:
+                text = await resp.text()
+                raise RuntimeError(f"HTTP error {resp.status}: {text}")
+
+            response_data = await resp.json()
+
+            # Extract text from response parts
+            parts = response_data.get("parts", [])
+            for part in parts:
+                if part.get("type") == "text":
+                    text_content = part.get("text", "")
+                    if text_content:
+                        # Yield in the expected format for compatibility with existing code
+                        yield {
+                            "update": {
+                                "sessionUpdate": "agent_message_chunk",
+                                "content": {
+                                    "type": "text",
+                                    "text": text_content,
+                                },
+                            },
+                            "sessionId": self.session_id,
+                        }
 
     async def _send_request(
         self, method: str, params: dict[str, Any]
@@ -168,6 +241,11 @@ class ACPClient:
         return cast(dict[str, Any], msg)
 
     async def stop(self) -> None:
+        if self.http_session:
+            await self.http_session.close()
+            self.http_session = None
+            log.info("Closed OpenCode HTTP session")
+
         if self.process:
             try:
                 self.process.terminate()
@@ -190,6 +268,7 @@ class EchoBot:
         user_id: str,
         device_id: str,
         access_token: str,
+        opencode_server_url: str | None = None,
     ) -> None:
         config = AsyncClientConfig(store_sync_tokens=True)
 
@@ -201,7 +280,7 @@ class EchoBot:
             config=config,
         )
         self.client.access_token = access_token
-        self.acp_client = ACPClient()
+        self.acp_client = ACPClient(server_url=opencode_server_url)
 
     async def send_to_matrix(self, room: MatrixRoom, message: str) -> None:
         message = message.strip()
