@@ -35,12 +35,24 @@ def mock_acp_client():
 @pytest.fixture
 def bot(mock_async_client, mock_acp_client):
     _mock, client_instance = mock_async_client
-    return EchoBot("https://example.com", "@bot:example.com", "DEVICE123", "test_token")
+    return EchoBot(
+        "https://example.com",
+        "@bot:example.com",
+        "DEVICE123",
+        "test_token",
+        "http://localhost:8080",
+    )
 
 
 def test_bot_initialization(mock_async_client):
     mock, client_instance = mock_async_client
-    bot = EchoBot("https://example.com", "@bot:example.com", "DEVICE123", "test_token")
+    bot = EchoBot(
+        "https://example.com",
+        "@bot:example.com",
+        "DEVICE123",
+        "test_token",
+        "http://localhost:8080",
+    )
     assert bot.client == client_instance
     assert bot.client.access_token == "test_token"
 
@@ -114,11 +126,23 @@ async def test_message_callback_from_self(bot):
 
 def test_bot_initialization_with_token(mock_async_client):
     mock, client_instance = mock_async_client
-    bot = EchoBot("https://example.com", "@bot:example.com", "DEVICE123", "my_token")
+    bot = EchoBot(
+        "https://example.com",
+        "@bot:example.com",
+        "DEVICE123",
+        "my_token",
+        "http://localhost:8080",
+    )
     assert bot.client.access_token == "my_token"
 
 
 def test_bot_initialization_homeserver(mock_async_client):
     mock, client_instance = mock_async_client
-    EchoBot("https://matrix.org", "@bot:matrix.org", "DEVICE123", "token")
+    EchoBot(
+        "https://matrix.org",
+        "@bot:matrix.org",
+        "DEVICE123",
+        "token",
+        "http://localhost:8080",
+    )
     mock.assert_called_once()

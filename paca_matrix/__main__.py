@@ -103,9 +103,10 @@ async def run_bot(opts: "CliOpts") -> None:
         or not opts.user_id
         or not opts.access_token
         or not opts.device_id
+        or not opts.opencode_server_url
     ):
         log.error(
-            "Bot requires --homeserver, --user-id, --device-id, and --access-token"
+            "Bot requires --homeserver, --user-id, --device-id, --access-token, and --opencode-server-url"
         )
         log.info("Or use --login to set up credentials")
         return
@@ -191,23 +192,27 @@ class CliOpts:
             required=False,
             action=EnvAction,
             env_var="PACAMATRIX_OPENCODE_SERVER_URL",
-            help="OpenCode server URL for serve mode (env: PACAMATRIX_OPENCODE_SERVER_URL). If not set, will use subprocess ACP mode",
+            help="OpenCode server URL (env: PACAMATRIX_OPENCODE_SERVER_URL)",
         )
         parser.add_argument(
             "--session",
             required=False,
             action=EnvAction,
             env_var="PACAMATRIX_SESSION",
-            help="Session ID to connect to (only for serve mode) (env: PACAMATRIX_SESSION). If not set, creates a new session",
+            help="Session ID to connect to (env: PACAMATRIX_SESSION). If not set, creates a new session",
         )
 
         args = parser.parse_args()
 
         if not args.login and not (
-            args.homeserver and args.user_id and args.device_id and args.access_token
+            args.homeserver
+            and args.user_id
+            and args.device_id
+            and args.access_token
+            and args.opencode_server_url
         ):
             parser.error(
-                "--homeserver, --user-id, --device-id, and --access-token are required when not using --login"
+                "--homeserver, --user-id, --device-id, --access-token, and --opencode-server-url are required when not using --login"
             )
 
         return CliOpts(

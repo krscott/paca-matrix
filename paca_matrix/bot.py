@@ -1,9 +1,7 @@
 import asyncio
-import json
 import logging
 from collections.abc import AsyncIterator
-from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import aiohttp
 from nio import (
@@ -17,80 +15,22 @@ from nio import (
 
 log = logging.getLogger(__name__)
 
-OPENCODE_MODEL = "opencode/glm-4.7-free"
-
 
 class ACPClient:
-    """Client for communicating with OpenCode via Agent Client Protocol (ACP)"""
+    """Client for communicating with OpenCode via HTTP"""
 
     def __init__(
         self,
-        cwd: str | None = None,
-        server_url: str | None = None,
+        server_url: str,
         session_name: str | None = None,
     ) -> None:
-        self.process: asyncio.subprocess.Process | None = None
         self.session_id: str | None = None
-        self.request_id = 0
-        self.cwd = cwd or str(Path.cwd())
         self.server_url = server_url
         self.session_name = session_name
         self.http_session: aiohttp.ClientSession | None = None
 
     async def start(self) -> None:
-        if self.server_url:
-            await self._start_http()
-        else:
-            await self._start_subprocess()
-
-    async def _start_subprocess(self) -> None:
-        log.info("Starting OpenCode ACP process...")
-        self.process = await asyncio.create_subprocess_exec(
-            "opencode",
-            "acp",
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-
-        asyncio.create_task(self._log_stderr())
-
-        log.debug("Sending initialize request...")
-        result = await self._send_request(
-            "initialize",
-            {
-                "protocolVersion": 1,
-                "clientCapabilities": {
-                    "fs": {
-                        "readTextFile": True,
-                        "writeTextFile": True,
-                    },
-                    "terminal": True,
-                },
-                "clientInfo": {
-                    "name": "paca-matrix",
-                    "title": "Paca Matrix Bot",
-                    "version": "0.1.0",
-                },
-            },
-        )
-
-        log.info(
-            "Initialized OpenCode: %s",
-            result.get("agentInfo", {}).get("name", "Unknown"),
-        )
-
-        log.debug("Sending session/new request...")
-        session_result = await self._send_request(
-            "session/new",
-            {
-                "cwd": self.cwd,
-                "mcpServers": [],
-            },
-        )
-
-        self.session_id = session_result["sessionId"]
-        log.info("Created session: %s", self.session_id)
+        await self._start_http()
 
     async def _start_http(self) -> None:
         log.info("Connecting to OpenCode server at %s...", self.server_url)
@@ -125,59 +65,9 @@ class ACPClient:
             self.session_id = session_data["id"]
             log.info("Created session: %s", self.session_id)
 
-    async def _log_stderr(self) -> None:
-        if not self.process or not self.process.stderr:
-            return
-        while True:
-            line = await self.process.stderr.readline()
-            if not line:
-                break
-            log.debug("OpenCode stderr: %s", line.decode().strip())
-
     async def prompt_stream(self, message: str) -> AsyncIterator[dict[str, Any]]:
-        if self.server_url:
-            async for update in self._prompt_stream_http(message):
-                yield update
-        else:
-            async for update in self._prompt_stream_subprocess(message):
-                yield update
-
-    async def _prompt_stream_subprocess(
-        self, message: str
-    ) -> AsyncIterator[dict[str, Any]]:
-        if not self.session_id:
-            raise RuntimeError("Session not initialized")
-
-        prompt_id = self.request_id
-        self.request_id += 1
-
-        prompt_request = {
-            "jsonrpc": "2.0",
-            "id": prompt_id,
-            "method": "session/prompt",
-            "params": {
-                "sessionId": self.session_id,
-                "prompt": [
-                    {
-                        "type": "text",
-                        "text": message,
-                    }
-                ],
-            },
-        }
-
-        await self._write_message(prompt_request)
-
-        while True:
-            msg = await self._read_message()
-            if msg.get("id") == prompt_id:
-                return
-            if msg.get("method") == "session/update":
-                params = msg.get("params", {})
-                if params.get("sessionId") == self.session_id:
-                    yield cast(dict[str, Any], params)
-            elif msg.get("method") == "session/end":
-                return
+        async for update in self._prompt_stream_http(message):
+            yield update
 
     async def _prompt_stream_http(self, message: str) -> AsyncIterator[dict[str, Any]]:
         if not self.session_id or not self.http_session or not self.server_url:
@@ -214,74 +104,13 @@ class ACPClient:
                                     "text": text_content,
                                 },
                             },
-                            "sessionId": self.session_id,
                         }
-
-    async def _send_request(
-        self, method: str, params: dict[str, Any]
-    ) -> dict[str, Any]:
-        request_id = self.request_id
-        self.request_id += 1
-
-        request = {
-            "jsonrpc": "2.0",
-            "id": request_id,
-            "method": method,
-            "params": params,
-        }
-
-        await self._write_message(request)
-
-        while True:
-            response = await self._read_message()
-            if response.get("id") == request_id:
-                if "error" in response:
-                    raise RuntimeError(f"ACP error: {response['error']}")
-                result: dict[str, Any] = response.get("result", {})
-                return result
-
-    async def _write_message(self, message: dict[str, Any]) -> None:
-        if not self.process or not self.process.stdin:
-            raise RuntimeError("Process not started")
-
-        data = json.dumps(message)
-        log.debug("Sending JSON: %s", data)
-        self.process.stdin.write((data + "\n").encode())
-        await self.process.stdin.drain()
-
-    async def _read_message(self) -> dict[str, Any]:
-        if not self.process or not self.process.stdout:
-            raise RuntimeError("Process not started")
-
-        line_bytes = await self.process.stdout.readline()
-        if not line_bytes:
-            raise RuntimeError("Process closed unexpectedly")
-
-        line = line_bytes.decode().strip()
-        # log.debug("From opencode: %s", line)
-        msg = json.loads(line)
-        assert isinstance(msg, dict)
-        return cast(dict[str, Any], msg)
 
     async def stop(self) -> None:
         if self.http_session:
             await self.http_session.close()
             self.http_session = None
             log.info("Closed OpenCode HTTP session")
-
-        if self.process:
-            try:
-                self.process.terminate()
-                await asyncio.wait_for(self.process.wait(), timeout=5.0)
-            except (asyncio.TimeoutError, ProcessLookupError):
-                try:
-                    self.process.kill()
-                    await self.process.wait()
-                except ProcessLookupError:
-                    pass
-            finally:
-                self.process = None
-                log.info("Stopped OpenCode ACP process")
 
 
 class EchoBot:
@@ -291,7 +120,7 @@ class EchoBot:
         user_id: str,
         device_id: str,
         access_token: str,
-        opencode_server_url: str | None = None,
+        opencode_server_url: str,
         session_name: str | None = None,
     ) -> None:
         config = AsyncClientConfig(store_sync_tokens=True)
