@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import time
+from dataclasses import dataclass
 from typing import Any
 
 from nio import Event, MatrixRoom, RoomMessageText
@@ -9,6 +10,20 @@ from paca_matrix.matrix import MatrixClient
 from paca_matrix.opencode import OpencodeClient
 
 log = logging.getLogger(__name__)
+
+
+@dataclass
+class QuestionOption:
+    label: str
+    description: str
+
+
+@dataclass
+class PendingQuestion:
+    message_id: str
+    question: str
+    options: list[QuestionOption]
+    multiple: bool
 
 
 class PacaBot:
@@ -39,6 +54,7 @@ class PacaBot:
         self._seen_event_ids: set[str] = set()
         self._start_time_ms: int = int(time.time() * 1000)
         self._sent_message_ids: set[str] = set()
+        self._pending_question: PendingQuestion | None = None
 
     async def send_to_matrix(self, room: MatrixRoom, message: str) -> None:
         await self.matrix_bot.send_message(room, message)
@@ -77,6 +93,12 @@ class PacaBot:
         # Track the current room for sending OpenCode responses
         self.current_room = room
 
+        # Check if this is a response to a pending question
+        if self._pending_question:
+            response_handled = await self._handle_question_response(event.body)
+            if response_handled:
+                return
+
         try:
             await self.opencode_client.prompt_async(event.body)
         except Exception as e:
@@ -90,6 +112,63 @@ class PacaBot:
                 },
             )
 
+    async def _handle_question_response(self, response: str) -> bool:
+        """Handle a response to a pending question. Returns True if handled."""
+        if not self._pending_question:
+            return False
+
+        response = response.strip()
+
+        # Check if response is a number or comma-separated numbers
+        try:
+            if self._pending_question.multiple:
+                indices = [int(x.strip()) for x in response.split(",")]
+            else:
+                indices = [int(response)]
+        except ValueError:
+            log.debug("Not a numeric response, treating as normal message")
+            return False
+
+        # Validate indices
+        max_index = len(self._pending_question.options)
+        valid_indices: list[int] = []
+        for idx in indices:
+            if 1 <= idx <= max_index:
+                valid_indices.append(idx - 1)
+            else:
+                log.warning("Invalid question index: %d", idx)
+                if self.current_room:
+                    await self.send_to_matrix(
+                        self.current_room,
+                        f"Invalid selection: {idx}. Please choose 1-{max_index}",
+                    )
+                return True
+
+        if not valid_indices:
+            log.warning("No valid indices in response")
+            if self.current_room:
+                await self.send_to_matrix(
+                    self.current_room, "Invalid selection. Please try again."
+                )
+            return True
+
+        # Submit answer to OpenCode
+        try:
+            await self.opencode_client.answer_question(
+                message_id=self._pending_question.message_id,
+                indices=valid_indices,
+            )
+            log.info("Submitted question answer: %s", valid_indices)
+            self._pending_question = None
+            return True
+        except Exception as e:
+            log.exception("Failed to submit question answer: %s", e)
+            if self.current_room:
+                await self.send_to_matrix(
+                    self.current_room, f"Error submitting answer: {e}"
+                )
+            return True
+
     async def _event_listener(self) -> None:
         """Background task that listens to OpenCode SSE events and forwards messages to Matrix."""
         try:
@@ -97,7 +176,7 @@ class PacaBot:
                 log.info(
                     "SSE event: %s, data: %s",
                     sse_event.event,
-                    sse_event.data[:100] if sse_event.data else None,
+                    sse_event.data if sse_event.data else None,
                 )
 
                 if sse_event.data:
@@ -111,10 +190,74 @@ class PacaBot:
             log.info("Event listener cancelled")
             raise
 
+    async def _handle_question_event(self, properties: dict[str, Any]) -> None:
+        """Handle question events from OpenCode and send to Matrix as numbered list."""
+        tool: dict[str, Any] = properties.get("tool", {}) or {}
+        questions: list[dict[str, Any]] = properties.get("questions", [])
+
+        if not questions or not tool:
+            log.warning("Invalid question event: missing questions or tool info")
+            return
+
+        message_id: str = tool.get("messageID", "")
+        question_data: dict[str, Any] = questions[0]
+        question: str = question_data.get("question", "")
+        header: str = question_data.get("header", "")
+        question_options: list[dict[str, Any]] = question_data.get("options", [])
+        multiple: bool = question_data.get("multiple", False)
+
+        if not question or not question_options:
+            log.warning("Invalid question event: missing question or options")
+            return
+
+        log.info("Received question: %s", question[:100])
+
+        # Parse options
+        options = [
+            QuestionOption(label=opt.get("label", ""), description=opt.get("description", ""))
+            for opt in question_options
+        ]
+
+        # Store pending question
+        self._pending_question = PendingQuestion(
+            message_id=message_id,
+            question=question,
+            options=options,
+            multiple=multiple,
+        )
+
+        # Format question for Matrix
+        lines: list[str] = []
+        if header:
+            lines.append(f"{header}")
+            lines.append("")
+        lines.append(f"Question: {question}")
+        lines.append("")
+        for i, opt in enumerate(options, 1):
+            lines.append(f"{i}. {opt.label}")
+            if opt.description:
+                lines.append(f"   {opt.description}")
+
+        lines.append("")
+        if multiple:
+            lines.append("Reply with numbers separated by commas (e.g., 1,3)")
+        else:
+            lines.append("Reply with a number to select (e.g., 2)")
+
+        message = "\n".join(lines)
+
+        if self.current_room:
+            await self.send_to_matrix(self.current_room, message)
+
     async def _handle_opencode_event(self, data: dict[str, Any]) -> None:
         """Process a single OpenCode event and send to Matrix if appropriate."""
         event_type = data.get("type")
         properties: dict[str, Any] = data.get("properties", {}) or {}
+
+        # Handle question events
+        if event_type == "question.asked":
+            await self._handle_question_event(properties)
+            return
 
         # When a message is updated, fetch the full message and send to Matrix
         if event_type == "message.updated":

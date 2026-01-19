@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from paca_matrix.bot import PacaBot
+from paca_matrix.bot import PacaBot, PendingQuestion, QuestionOption
 
 
 @pytest.fixture
@@ -42,7 +42,7 @@ def make_paca_bot() -> PacaBot:
         opencode_server_url="http://localhost:8080",
     )
     # Set start time to past so test events with future timestamps work
-    bot._start_time_ms = int(time.time() * 1000) - 10000
+    bot._start_time_ms = int(time.time() * 1000) - 10000  # type: ignore[reportPrivateUsage]
     return bot
 
 
@@ -259,3 +259,166 @@ async def test_stop(
 
     mock_opencode_client.stop.assert_called_once()
     mock_matrix_client.stop.assert_called_once()
+
+
+async def test_handle_question_event(
+    mock_matrix_client: MagicMock, mock_opencode_client: MagicMock
+) -> None:
+    """Test that question events are formatted and sent to Matrix."""
+    bot = make_paca_bot()
+    room = MagicMock()
+    bot.current_room = room
+
+    data: dict[str, Any] = {
+        "type": "question.asked",
+        "properties": {
+            "id": "que_question1",
+            "questions": [
+                {
+                    "question": "Which framework do you prefer?",
+                    "header": "Pick a framework",
+                    "options": [
+                        {"label": "React", "description": "A JavaScript library"},
+                        {"label": "Vue", "description": "A progressive framework"},
+                        {"label": "Angular", "description": "A full-featured framework"},
+                    ],
+                    "multiple": False,
+                }
+            ],
+            "tool": {
+                "messageID": "msg_question1",
+                "callID": "call_123",
+            },
+        },
+    }
+
+    await bot._handle_opencode_event(data)  # pyright: ignore[reportPrivateUsage]
+
+    # Check that question was stored
+    assert bot._pending_question is not None  # type: ignore[reportPrivateUsage]
+    assert bot._pending_question.message_id == "msg_question1"  # type: ignore[reportPrivateUsage]
+    assert bot._pending_question.question == "Which framework do you prefer?"  # type: ignore[reportPrivateUsage]
+    assert len(bot._pending_question.options) == 3  # type: ignore[reportPrivateUsage]
+    assert bot._pending_question.options[0].label == "React"  # type: ignore[reportPrivateUsage]
+    assert bot._pending_question.multiple is False  # type: ignore[reportPrivateUsage]
+
+    # Check that question was sent to Matrix
+    call_args = mock_matrix_client.send_message.call_args
+    message = call_args[0][1]
+    assert "Which framework do you prefer?" in message
+    assert "Pick a framework" in message
+    assert "1. React" in message
+    assert "2. Vue" in message
+    assert "3. Angular" in message
+
+
+async def test_handle_question_response_single_select(
+    mock_matrix_client: MagicMock, mock_opencode_client: MagicMock
+) -> None:
+    """Test handling single-select question response."""
+    bot = make_paca_bot()
+    room = MagicMock()
+    bot.current_room = room
+    bot._pending_question = PendingQuestion(  # type: ignore[reportPrivateUsage]
+        message_id="msg_q1",
+        question="Test question?",
+        options=[
+            QuestionOption(label="Option A", description=""),
+            QuestionOption(label="Option B", description=""),
+        ],
+        multiple=False,
+    )
+    mock_opencode_client.answer_question = AsyncMock()
+
+    # Send valid response
+    result = await bot._handle_question_response("1")  # pyright: ignore[reportPrivateUsage]
+
+    assert result is True
+    mock_opencode_client.answer_question.assert_called_once_with(
+        message_id="msg_q1",
+        indices=[0],
+    )
+    assert bot._pending_question is None  # type: ignore[reportPrivateUsage]
+
+
+async def test_handle_question_response_multiple_select(
+    mock_matrix_client: MagicMock, mock_opencode_client: MagicMock
+) -> None:
+    """Test handling multi-select question response."""
+    bot = make_paca_bot()
+    room = MagicMock()
+    bot.current_room = room
+    bot._pending_question = PendingQuestion(  # type: ignore[reportPrivateUsage]
+        message_id="msg_q2",
+        question="Select all that apply?",
+        options=[
+            QuestionOption(label="A", description=""),
+            QuestionOption(label="B", description=""),
+            QuestionOption(label="C", description=""),
+        ],
+        multiple=True,
+    )
+    mock_opencode_client.answer_question = AsyncMock()
+
+    # Send valid response
+    result = await bot._handle_question_response("1,3")  # pyright: ignore[reportPrivateUsage]
+
+    assert result is True
+    mock_opencode_client.answer_question.assert_called_once_with(
+        message_id="msg_q2",
+        indices=[0, 2],
+    )
+    assert bot._pending_question is None  # type: ignore[reportPrivateUsage]
+
+
+async def test_handle_question_response_invalid_index(
+    mock_matrix_client: MagicMock, mock_opencode_client: MagicMock
+) -> None:
+    """Test handling invalid question response."""
+    bot = make_paca_bot()
+    room = MagicMock()
+    bot.current_room = room
+    bot._pending_question = PendingQuestion(  # type: ignore[reportPrivateUsage]
+        message_id="msg_q3",
+        question="Test question?",
+        options=[
+            QuestionOption(label="A", description=""),
+            QuestionOption(label="B", description=""),
+        ],
+        multiple=False,
+    )
+    mock_opencode_client.answer_question = AsyncMock()
+
+    # Send invalid response (out of range)
+    result = await bot._handle_question_response("5")  # pyright: ignore[reportPrivateUsage]
+
+    assert result is True
+    mock_opencode_client.answer_question.assert_not_called()
+    assert bot._pending_question is not None  # type: ignore[reportPrivateUsage]  # Question remains pending
+
+    # Check error message sent to Matrix
+    call_args = mock_matrix_client.send_message.call_args
+    assert "Invalid selection: 5" in call_args[0][1]
+
+
+async def test_handle_question_response_non_numeric(
+    mock_matrix_client: MagicMock, mock_opencode_client: MagicMock
+) -> None:
+    """Test that non-numeric responses are not handled as question responses."""
+    bot = make_paca_bot()
+    bot._pending_question = PendingQuestion(  # type: ignore[reportPrivateUsage]
+        message_id="msg_q4",
+        question="Test question?",
+        options=[
+            QuestionOption(label="A", description=""),
+        ],
+        multiple=False,
+    )
+    mock_opencode_client.answer_question = AsyncMock()
+
+    # Send non-numeric response
+    result = await bot._handle_question_response("I don't know")  # pyright: ignore[reportPrivateUsage]
+
+    assert result is False  # Not handled as question response
+    mock_opencode_client.answer_question.assert_not_called()
+    assert bot._pending_question is not None  # type: ignore[reportPrivateUsage]  # Question remains pending
