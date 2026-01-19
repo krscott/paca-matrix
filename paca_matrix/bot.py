@@ -6,6 +6,8 @@ from nio import AsyncClient, AsyncClientConfig, RoomMessageText, SyncResponse
 
 log = logging.getLogger(__name__)
 
+OPENCODE_MODEL = "opencode/glm-4.7-free"
+
 
 class EchoBot:
     def __init__(
@@ -32,13 +34,40 @@ class EchoBot:
 
         log.debug("Received message from %s: %s", event.sender, event.body)
 
-        await self.client.room_send(
-            room_id=room.room_id,
-            message_type="m.room.message",
-            content={"msgtype": "m.text", "body": event.body},
-        )
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "opencode",
+                "-m",
+                OPENCODE_MODEL,
+                "run",
+                event.body,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
 
-        log.debug("Echoed message back to %s", room.room_id)
+            stdout, stderr = await proc.communicate()
+
+            if proc.returncode != 0:
+                error_msg = stderr.decode().strip() or "Unknown error"
+                log.error("Opencode command failed: %s", error_msg)
+                response = f"Error: {error_msg}"
+            else:
+                response = stdout.decode().strip()
+
+            await self.client.room_send(
+                room_id=room.room_id,
+                message_type="m.room.message",
+                content={"msgtype": "m.text", "body": response},
+            )
+
+            log.debug("Sent response back to %s", room.room_id)
+        except Exception as e:
+            log.exception("Error processing message: %s", e)
+            await self.client.room_send(
+                room_id=room.room_id,
+                message_type="m.room.message",
+                content={"msgtype": "m.text", "body": f"Error processing message: {e}"},
+            )
 
     async def start(self) -> None:
         log.info("Starting bot...")

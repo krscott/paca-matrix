@@ -73,11 +73,17 @@ async def test_message_callback_from_other_user(bot):
     event.sender = "@user:example.com"
     event.body = "Hello, bot!"
 
-    await bot.message_callback(room, event)
+    mock_proc = AsyncMock()
+    mock_proc.returncode = 0
+    mock_proc.communicate = AsyncMock(return_value=(b"AI response here", b""))
+
+    with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
+        await bot.message_callback(room, event)
+
     bot.client.room_send.assert_called_once_with(
         room_id="!room:example.com",
         message_type="m.room.message",
-        content={"msgtype": "m.text", "body": "Hello, bot!"},
+        content={"msgtype": "m.text", "body": "AI response here"},
     )
 
 
