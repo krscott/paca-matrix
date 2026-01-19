@@ -7,7 +7,7 @@ from paca_matrix.bot import EchoBot
 
 @pytest.fixture
 def mock_async_client():
-    with patch("paca_matrix.bot.AsyncClient", autospec=True) as mock:
+    with patch("paca_matrix.matrix.AsyncClient", autospec=True) as mock:
         client_instance = MagicMock()
         client_instance.access_token = None
         client_instance.user = "@bot:example.com"
@@ -23,7 +23,7 @@ def mock_async_client():
 
 @pytest.fixture
 def mock_acp_client():
-    with patch("paca_matrix.bot.ACPClient", autospec=True) as mock:
+    with patch("paca_matrix.opencode.ACPClient", autospec=True) as mock:
         acp_instance = MagicMock()
         acp_instance.start = AsyncMock()
         acp_instance.stop = AsyncMock()
@@ -53,8 +53,8 @@ def test_bot_initialization(mock_async_client):
         "test_token",
         "http://localhost:8080",
     )
-    assert bot.client == client_instance
-    assert bot.client.access_token == "test_token"
+    assert bot.matrix_bot.client == client_instance
+    assert bot.matrix_bot.client.access_token == "test_token"
 
 
 async def test_bot_run_forever_does_initial_sync(bot):
@@ -67,24 +67,25 @@ async def test_bot_run_forever_does_initial_sync(bot):
             await bot.stop()
             raise SystemExit()
 
-    bot.client.sync = AsyncMock(side_effect=stop_after_two_syncs)
+    bot.matrix_bot.client.sync = AsyncMock(side_effect=stop_after_two_syncs)
+    bot.acp_client.start = AsyncMock()
 
     try:
         await bot.run_forever()
     except SystemExit:
         pass
 
-    assert bot.client.sync.call_count >= 2
-    bot.client.add_event_callback.assert_called_once()
+    assert bot.matrix_bot.client.sync.call_count >= 2
+    bot.matrix_bot.client.add_event_callback.assert_called_once()
 
 
 async def test_bot_stop(bot):
     await bot.stop()
-    bot.client.close.assert_called_once()
+    bot.matrix_bot.client.close.assert_called_once()
 
 
 async def test_message_callback_from_other_user(bot):
-    from paca_matrix.bot import RoomMessageText
+    from nio import RoomMessageText
 
     room = MagicMock()
     room.room_id = "!room:example.com"
@@ -104,7 +105,7 @@ async def test_message_callback_from_other_user(bot):
 
     await bot.message_callback(room, event)
 
-    bot.client.room_send.assert_called_once_with(
+    bot.matrix_bot.client.room_send.assert_called_once_with(
         room_id="!room:example.com",
         message_type="m.room.message",
         content={"msgtype": "m.text", "body": "AI response here"},
@@ -112,7 +113,7 @@ async def test_message_callback_from_other_user(bot):
 
 
 async def test_message_callback_from_self(bot):
-    from paca_matrix.bot import RoomMessageText
+    from nio import RoomMessageText
 
     room = MagicMock()
     room.room_id = "!room:example.com"
@@ -121,7 +122,7 @@ async def test_message_callback_from_self(bot):
     event.body = "Hello, myself!"
 
     await bot.message_callback(room, event)
-    bot.client.room_send.assert_not_called()
+    bot.matrix_bot.client.room_send.assert_not_called()
 
 
 def test_bot_initialization_with_token(mock_async_client):
@@ -133,7 +134,7 @@ def test_bot_initialization_with_token(mock_async_client):
         "my_token",
         "http://localhost:8080",
     )
-    assert bot.client.access_token == "my_token"
+    assert bot.matrix_bot.client.access_token == "my_token"
 
 
 def test_bot_initialization_homeserver(mock_async_client):

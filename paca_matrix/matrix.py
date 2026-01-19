@@ -1,0 +1,75 @@
+import asyncio
+import logging
+from collections.abc import Awaitable, Callable
+
+from nio import (
+    AsyncClient,
+    AsyncClientConfig,
+    Event,
+    MatrixRoom,
+    RoomMessageText,
+    SyncResponse,
+)
+
+log = logging.getLogger(__name__)
+
+
+class MatrixBot:
+    def __init__(
+        self,
+        homeserver: str,
+        user_id: str,
+        device_id: str,
+        access_token: str,
+    ) -> None:
+        config = AsyncClientConfig(store_sync_tokens=True)
+
+        self.client = AsyncClient(
+            homeserver,
+            user_id,
+            device_id=device_id,
+            store_path=".nio_store",
+            config=config,
+        )
+        self.client.access_token = access_token
+
+    async def send_message(self, room: MatrixRoom, message: str) -> None:
+        message = message.strip()
+        if not message:
+            log.info("Skipping empty message")
+            return
+
+        log.info("Sending to %s: %s", room.room_id, message)
+
+        await self.client.room_send(
+            room_id=room.room_id,
+            message_type="m.room.message",
+            content={"msgtype": "m.text", "body": message},
+        )
+
+    async def setup_message_handler(
+        self, callback: Callable[[MatrixRoom, Event], Awaitable[None]]
+    ) -> None:
+        self.client.add_event_callback(
+            callback,
+            RoomMessageText,
+        )
+
+    async def sync_forever(self) -> None:
+        response = await self.client.sync()
+        if isinstance(response, SyncResponse):
+            log.info(
+                "Initial sync complete, next_batch: %s",
+                response.next_batch[:20] + "...",
+            )
+
+        try:
+            while True:
+                await self.client.sync()
+        except (KeyboardInterrupt, asyncio.CancelledError):
+            raise
+
+    async def stop(self) -> None:
+        log.info("Stopping Matrix client...")
+        await self.client.close()
+        log.info("Matrix client stopped")
