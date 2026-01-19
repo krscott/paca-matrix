@@ -93,6 +93,13 @@ class PacaBot:
         # Track the current room for sending OpenCode responses
         self.current_room = room
 
+        message_to_send = event.body
+        # Check if this is a slash command
+        if event.body.startswith("/"):
+            command_handled, message_to_send = await self._handle_slash_command(event.body)
+            if command_handled:
+                return
+
         # Check if this is a response to a pending question
         if self._pending_question:
             response_handled = await self._handle_question_response(event.body)
@@ -100,7 +107,8 @@ class PacaBot:
                 return
 
         try:
-            await self.opencode_client.prompt_async(event.body)
+            if message_to_send is not None:
+                await self.opencode_client.prompt_async(message_to_send)
         except Exception as e:
             log.exception("Error sending message to OpenCode: %s", e)
             await self.matrix_bot.client.room_send(
@@ -173,6 +181,37 @@ class PacaBot:
                     self.current_room, f"Error submitting answer: {e}"
                 )
             return True
+
+    async def _handle_slash_command(self, message: str) -> tuple[bool, str | None]:
+        """Handle slash commands. Returns (handled, message_to_send)."""
+        # Handle // as escape to send to OpenCode
+        if message.startswith("//"):
+            return False, message[1:]  # Strip one slash
+
+        parts = message.strip().split(maxsplit=1)
+        if not parts:
+            return False, None
+
+        command = parts[0].lower()
+        args = parts[1:] if len(parts) > 1 else []
+
+        if command == "/echo":
+            if len(args) == 0:
+                if self.current_room:
+                    await self.send_to_matrix(self.current_room, "Usage: /echo <message>")
+                return True, None
+            echo_msg = args[0]
+            if self.current_room:
+                await self.send_to_matrix(self.current_room, f"Echo: {echo_msg}")
+            return True, None
+
+        # Unknown command - send error
+        if self.current_room:
+            await self.send_to_matrix(
+                self.current_room,
+                f"Unrecognized command '{command}'. (To send to agent, send an extra slash '// ...')",
+            )
+        return True, None
 
     async def _event_listener(self) -> None:
         """Background task that listens to OpenCode SSE events and forwards messages to Matrix."""

@@ -330,9 +330,9 @@ async def test_handle_question_response_single_select(
     mock_opencode_client.reply_question = AsyncMock()
 
     # Send valid response
-    result = await bot._handle_question_response(
+    result = await bot._handle_question_response(  # pyright: ignore[reportPrivateUsage]
         "1"
-    )  # pyright: ignore[reportPrivateUsage]
+    )
 
     assert result is True
     mock_opencode_client.reply_question.assert_called_once_with(
@@ -362,9 +362,9 @@ async def test_handle_question_response_multiple_select(
     mock_opencode_client.reply_question = AsyncMock()
 
     # Send valid response
-    result = await bot._handle_question_response(
+    result = await bot._handle_question_response(  # pyright: ignore[reportPrivateUsage]
         "1,3"
-    )  # pyright: ignore[reportPrivateUsage]
+    )
 
     assert result is True
     mock_opencode_client.reply_question.assert_called_once_with(
@@ -393,9 +393,9 @@ async def test_handle_question_response_invalid_index(
     mock_opencode_client.reply_question = AsyncMock()
 
     # Send invalid response (out of range)
-    result = await bot._handle_question_response(
+    result = await bot._handle_question_response(  # pyright: ignore[reportPrivateUsage]
         "5"
-    )  # pyright: ignore[reportPrivateUsage]
+    )
 
     assert result is True
     mock_opencode_client.reply_question.assert_not_called()
@@ -424,10 +424,187 @@ async def test_handle_question_response_non_numeric(
     mock_opencode_client.reply_question = AsyncMock()
 
     # Send non-numeric response
-    result = await bot._handle_question_response(
+    result = await bot._handle_question_response(  # pyright: ignore[reportPrivateUsage]
         "I don't know"
-    )  # pyright: ignore[reportPrivateUsage]
+    )
 
     assert result is False  # Not handled as question response
     mock_opencode_client.reply_question.assert_not_called()
     assert bot._pending_question is not None  # type: ignore[reportPrivateUsage]  # Question remains pending
+
+
+async def test_handle_slash_command_echo_with_message(
+    mock_matrix_client: MagicMock, mock_opencode_client: MagicMock
+) -> None:
+    """Test that /echo command echoes back the message."""
+    bot = make_paca_bot()
+    room = MagicMock()
+    bot.current_room = room
+
+    result, message_to_send = await bot._handle_slash_command(  # pyright: ignore[reportPrivateUsage]
+        "/echo hello world"
+    )
+
+    assert result is True
+    assert message_to_send is None
+    call_args = bot.matrix_bot.send_message.call_args  # type: ignore[reportPrivateUsage]
+    assert call_args[0][1] == "Echo: hello world"
+
+
+async def test_handle_slash_command_echo_no_message(
+    mock_matrix_client: MagicMock, mock_opencode_client: MagicMock
+) -> None:
+    """Test that /echo without message returns usage."""
+    bot = make_paca_bot()
+    room = MagicMock()
+    bot.current_room = room
+
+    result, message_to_send = await bot._handle_slash_command(  # pyright: ignore[reportPrivateUsage]
+        "/echo"
+    )
+
+    assert result is True
+    assert message_to_send is None
+    call_args = bot.matrix_bot.send_message.call_args  # type: ignore[reportPrivateUsage]
+    assert call_args[0][1] == "Usage: /echo <message>"
+
+
+async def test_handle_slash_command_unknown(
+    mock_matrix_client: MagicMock, mock_opencode_client: MagicMock
+) -> None:
+    """Test that unknown commands send an error message."""
+    bot = make_paca_bot()
+    room = MagicMock()
+    bot.current_room = room
+
+    result, message_to_send = await bot._handle_slash_command(  # pyright: ignore[reportPrivateUsage]
+        "/unknown command"
+    )
+
+    assert result is True
+    assert message_to_send is None
+    call_args = bot.matrix_bot.send_message.call_args  # type: ignore[reportPrivateUsage]
+    assert "Unrecognized command '/unknown'" in call_args[0][1]
+    assert "send an extra slash '// ...'" in call_args[0][1]
+
+
+async def test_handle_slash_command_double_slash(
+    mock_matrix_client: MagicMock, mock_opencode_client: MagicMock
+) -> None:
+    """Test that // sends message to OpenCode (escape)."""
+    bot = make_paca_bot()
+
+    handled, message_to_send = await bot._handle_slash_command(  # pyright: ignore[reportPrivateUsage]
+        "//help"
+    )
+
+    assert handled is False  # Not handled, falls through to OpenCode
+    assert message_to_send == "/help"  # One slash stripped
+    bot.matrix_bot.send_message.assert_not_called()  # type: ignore[reportPrivateUsage]
+
+
+async def test_message_callback_slash_command(
+    mock_matrix_client: MagicMock, mock_opencode_client: MagicMock
+) -> None:
+    """Test that slash commands are handled and not forwarded to OpenCode."""
+    bot = make_paca_bot()
+    bot._start_time_ms = 0  # type: ignore[reportPrivateUsage]
+
+    room = MagicMock()
+    room.room_id = "!room:example.com"
+
+    from nio import RoomMessageText
+    event = MagicMock(spec=RoomMessageText)
+    event.event_id = "$event1"
+    event.sender = "@user:example.com"
+    event.body = "/echo test"
+    event.server_timestamp = 1000
+
+    await bot.message_callback(room, event)
+
+    # Should send to Matrix
+    call_args = bot.matrix_bot.send_message.call_args  # type: ignore[reportPrivateUsage]
+    assert call_args[0][1] == "Echo: test"
+
+    # Should NOT send to OpenCode
+    mock_opencode_client.prompt_async.assert_not_called()
+
+
+async def test_message_callback_normal_message_forwarded(
+    mock_matrix_client: MagicMock, mock_opencode_client: MagicMock
+) -> None:
+    """Test that non-slash messages are forwarded to OpenCode."""
+    bot = make_paca_bot()
+    bot._start_time_ms = 0  # type: ignore[reportPrivateUsage]
+
+    room = MagicMock()
+    room.room_id = "!room:example.com"
+
+    from nio import RoomMessageText
+    event = MagicMock(spec=RoomMessageText)
+    event.event_id = "$event1"
+    event.sender = "@user:example.com"
+    event.body = "hello"
+    event.server_timestamp = 1000
+
+    await bot.message_callback(room, event)
+
+    # Should NOT send to Matrix directly
+    bot.matrix_bot.send_message.assert_not_called()  # type: ignore[reportPrivateUsage]
+
+    # Should send to OpenCode
+    bot.opencode_client.prompt_async.assert_called_once_with("hello")  # type: ignore[reportPrivateUsage]
+
+
+async def test_message_callback_double_slash_forwarded(
+    mock_matrix_client: MagicMock, mock_opencode_client: MagicMock
+) -> None:
+    """Test that // messages are forwarded to OpenCode with single slash."""
+    bot = make_paca_bot()
+    bot._start_time_ms = 0  # type: ignore[reportPrivateUsage]
+
+    room = MagicMock()
+    room.room_id = "!room:example.com"
+
+    from nio import RoomMessageText
+    event = MagicMock(spec=RoomMessageText)
+    event.event_id = "$event1"
+    event.sender = "@user:example.com"
+    event.body = "//help me"
+    event.server_timestamp = 1000
+
+    await bot.message_callback(room, event)
+
+    # Should NOT send to Matrix directly
+    bot.matrix_bot.send_message.assert_not_called()  # type: ignore[reportPrivateUsage]
+
+    # Should send to OpenCode with one slash stripped
+    bot.opencode_client.prompt_async.assert_called_once_with("/help me")  # type: ignore[reportPrivateUsage]
+
+
+async def test_message_callback_unknown_command_error(
+    mock_matrix_client: MagicMock, mock_opencode_client: MagicMock
+) -> None:
+    """Test that unknown slash commands send an error."""
+    bot = make_paca_bot()
+    bot._start_time_ms = 0  # type: ignore[reportPrivateUsage]
+
+    room = MagicMock()
+    room.room_id = "!room:example.com"
+
+    from nio import RoomMessageText
+    event = MagicMock(spec=RoomMessageText)
+    event.event_id = "$event1"
+    event.sender = "@user:example.com"
+    event.body = "/unknown"
+    event.server_timestamp = 1000
+
+    await bot.message_callback(room, event)
+
+    # Should send error to Matrix
+    call_args = bot.matrix_bot.send_message.call_args  # type: ignore[reportPrivateUsage]
+    assert "Unrecognized command '/unknown'" in call_args[0][1]
+    assert "send an extra slash '// ...'" in call_args[0][1]
+
+    # Should NOT send to OpenCode
+    bot.opencode_client.prompt_async.assert_not_called()  # type: ignore[reportPrivateUsage]
