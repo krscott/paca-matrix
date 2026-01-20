@@ -1,8 +1,8 @@
 import asyncio
 import logging
 import ssl
-from collections.abc import Awaitable, Callable
 import time
+from collections.abc import Awaitable, Callable
 
 from nio import (
     AsyncClient,
