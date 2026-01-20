@@ -73,6 +73,15 @@ class MatrixClient:
             room_id=room_id, fully_read_event=event_id, read_event=event_id
         )
 
+    async def set_typing(self, room: MatrixRoom, typing: bool = True) -> None:
+        """Set or clear typing notification for a room."""
+        timeout = 5000 if typing else 0
+        await self.client.room_typing(
+            room_id=room.room_id,
+            typing_state=typing,
+            timeout=timeout,
+        )
+
     async def setup_message_handler(
         self, callback: Callable[[MatrixRoom, Event], Awaitable[None]]
     ) -> None:

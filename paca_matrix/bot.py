@@ -431,13 +431,13 @@ class PacaBot:
         event_type = data.get("type")
         properties: dict[str, Any] = data.get("properties", {}) or {}
 
-        # Handle question events
         if event_type == "question.asked":
             await self._handle_question_event(properties)
             return
 
-        # When a message is updated, fetch the full message and send to Matrix
-        if event_type == "message.updated":
+        elif event_type == "message.updated":
+            # When a message is updated, fetch the full message and send to Matrix
+
             message_info: dict[str, Any] = properties.get("info", {}) or {}
             message_id: str | None = message_info.get("id")
             role = message_info.get("role", "")
@@ -462,11 +462,20 @@ class PacaBot:
 
                     if full_message and self.current_room:
                         await self.send_to_matrix(self.current_room, full_message)
+                        # Clear typing notification after sending message
+                        await self.matrix_bot.set_typing(
+                            self.current_room, typing=False
+                        )
                     self._add_sent_message_id(message_id)
                 except Exception as e:
                     log.exception(
                         "Failed to fetch and send message %s: %s", message_id, e
                     )
+
+        else:
+            # Send typing notification to indicate agent is working
+            if self.current_room:
+                await self.matrix_bot.set_typing(self.current_room, typing=True)
 
     async def run_forever(self) -> None:
         log.info("Starting bot...")

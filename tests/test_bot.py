@@ -16,6 +16,7 @@ def mock_matrix_client():
         matrix_bot_instance.client.user = "@bot:example.com"
         matrix_bot_instance.send_message = AsyncMock()
         matrix_bot_instance.read_receipt = AsyncMock()
+        matrix_bot_instance.set_typing = AsyncMock()
         matrix_bot_instance.stop = AsyncMock()
         mock.return_value = matrix_bot_instance
         yield matrix_bot_instance
