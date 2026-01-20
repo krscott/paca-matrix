@@ -3,6 +3,7 @@ import asyncio
 import getpass
 import logging
 import os
+import re
 import signal
 from dataclasses import dataclass
 from pathlib import Path
@@ -21,6 +22,7 @@ log = logging.getLogger(__name__)
 
 # Global reference for use by _signal_handler
 _bot_instance: PacaBot | None = None
+_opencode_process: asyncio.subprocess.Process | None = None
 
 
 def _signal_handler(signum: int, frame: Any) -> None:
@@ -54,6 +56,52 @@ def main() -> None:
             asyncio.run(run_bot(opts))
         except KeyboardInterrupt:
             pass
+
+
+async def start_opencode_server(
+    port: int = 0,
+) -> tuple[str, asyncio.subprocess.Process]:
+    """Start an opencode server subprocess and return the server URL and process."""
+    log.info("Starting opencode server on port %s...", port if port > 0 else "auto")
+
+    process = await asyncio.create_subprocess_exec(
+        "opencode",
+        "serve",
+        "--port",
+        str(port),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+
+    assert process.stdout is not None
+
+    url_pattern = re.compile(r"opencode server listening on (http://127\.0\.0\.1:\d+)")
+
+    while True:
+        line = await process.stdout.readline()
+        if not line:
+            raise RuntimeError("opencode server process terminated unexpectedly")
+        decoded = line.decode("utf-8").strip()
+        match = url_pattern.search(decoded)
+        if match:
+            url = match.group(1)
+            log.info("opencode server started at %s", url)
+            return url, process
+
+        log.debug("opencode server output: %s", decoded)
+
+
+async def stop_opencode_server(process: asyncio.subprocess.Process) -> None:
+    """Stop the opencode server subprocess."""
+    log.info("Stopping opencode server...")
+    process.terminate()
+    try:
+        await asyncio.wait_for(process.wait(), timeout=5.0)
+        log.info("opencode server stopped")
+    except asyncio.TimeoutError:
+        log.warning("opencode server did not stop gracefully, killing...")
+        process.kill()
+        await process.wait()
 
 
 async def matrix_login() -> None:
@@ -110,21 +158,29 @@ async def run_bot(opts: "CliOpts") -> None:
         or not opts.user_id
         or not opts.access_token
         or not opts.device_id
-        or not opts.opencode_server_url
     ):
         log.error(
-            "Bot requires --homeserver, --user-id, --device-id, --access-token, and --opencode-server-url"
+            "Bot requires --homeserver, --user-id, --device-id, and --access-token"
         )
         log.info("Or use --login to set up credentials")
         return
 
-    global _bot_instance
+    global _bot_instance, _opencode_process
+
+    opencode_server_url = opts.opencode_server_url
+
+    if opencode_server_url is None:
+        log.info("No opencode server URL provided, starting opencode server...")
+        opencode_server_url, _opencode_process = await start_opencode_server(
+            port=opts.opencode_port or 0
+        )
+
     bot = PacaBot(
         homeserver=opts.homeserver,
         user_id=opts.user_id,
         device_id=opts.device_id,
         access_token=opts.access_token,
-        opencode_server_url=opts.opencode_server_url,
+        opencode_server_url=opencode_server_url,
         session_name=opts.session_name,
         model=opts.model,
     )
@@ -137,6 +193,9 @@ async def run_bot(opts: "CliOpts") -> None:
     finally:
         _bot_instance = None
         await bot.stop()
+        if _opencode_process:
+            await stop_opencode_server(_opencode_process)
+            _opencode_process = None
 
 
 @dataclass(kw_only=True, frozen=True)
@@ -148,6 +207,7 @@ class CliOpts:
     device_id: str | None
     access_token: str | None
     opencode_server_url: str | None
+    opencode_port: int | None
     session_name: str | None
     model: str | None
 
@@ -201,7 +261,15 @@ class CliOpts:
             required=False,
             action=EnvAction,
             env_var="PACAMATRIX_OPENCODE_SERVER_URL",
-            help="OpenCode server URL (env: PACAMATRIX_OPENCODE_SERVER_URL)",
+            help="OpenCode server URL (env: PACAMATRIX_OPENCODE_SERVER_URL). If not provided, an opencode server will be started automatically",
+        )
+        parser.add_argument(
+            "--opencode-port",
+            required=False,
+            action=EnvAction,
+            env_var="PACAMATRIX_OPENCODE_PORT",
+            type=int,
+            help="Port for the automatically started opencode server (env: PACAMATRIX_OPENCODE_PORT). Default is to use an auto-assigned port (0)",
         )
         parser.add_argument(
             "--session",
@@ -221,14 +289,10 @@ class CliOpts:
         args = parser.parse_args()
 
         if not args.login and not (
-            args.homeserver
-            and args.user_id
-            and args.device_id
-            and args.access_token
-            and args.opencode_server_url
+            args.homeserver and args.user_id and args.device_id and args.access_token
         ):
             parser.error(
-                "--homeserver, --user-id, --device-id, --access-token, and --opencode-server-url are required when not using --login"
+                "--homeserver, --user-id, --device-id, and --access-token are required when not using --login"
             )
 
         return CliOpts(
@@ -239,6 +303,7 @@ class CliOpts:
             device_id=args.device_id,
             access_token=args.access_token,
             opencode_server_url=args.opencode_server_url,
+            opencode_port=args.opencode_port,
             session_name=args.session,
             model=args.model,
         )
