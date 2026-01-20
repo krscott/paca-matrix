@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import ssl
 from collections.abc import Awaitable, Callable
 
 from nio import (
@@ -24,12 +25,32 @@ class MatrixClient:
     ) -> None:
         config = AsyncClientConfig(store_sync_tokens=True)
 
+        # Determine SSL verification setting
+        # For production homeservers (HTTPS), enforce SSL verification
+        # For local/dev servers (HTTP or localhost HTTPS), allow without verification
+        ssl_verify: bool | ssl.SSLContext
+        if homeserver.startswith("http://"):
+            # Plain HTTP connection - no SSL verification needed
+            ssl_verify = False
+            log.info("Using HTTP connection (no SSL) to homeserver: %s", homeserver)
+        elif "127.0.0.1" in homeserver or "localhost" in homeserver:
+            # Localhost HTTPS - allow self-signed certificates for development
+            log.warning(
+                "SSL verification disabled for localhost homeserver: %s", homeserver
+            )
+            ssl_verify = False
+        else:
+            # Production homeserver - enforce full SSL verification
+            ssl_verify = True
+            log.info("SSL verification enabled for homeserver: %s", homeserver)
+
         self.client = AsyncClient(
             homeserver,
             user_id,
             device_id=device_id,
             store_path=".nio_store",
             config=config,
+            ssl=ssl_verify,
         )
         self.client.access_token = access_token
 

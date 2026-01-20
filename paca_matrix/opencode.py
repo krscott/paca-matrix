@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import ssl
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -49,7 +50,32 @@ class OpencodeClient:
 
     async def _start_http(self) -> None:
         log.info("Connecting to OpenCode server at %s...", self.server_url)
-        self.http_session = aiohttp.ClientSession()
+        
+        # Create SSL context with verification enabled (default behavior enforced)
+        # For localhost/127.0.0.1 connections, we allow unverified SSL since
+        # the server is typically running on the same machine
+        ssl_context: ssl.SSLContext | bool
+        if self.server_url.startswith("http://"):
+            # HTTP connection, no SSL needed
+            ssl_context = False
+        elif "127.0.0.1" in self.server_url or "localhost" in self.server_url:
+            # Localhost HTTPS connection - allow self-signed certificates
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+            log.warning(
+                "SSL verification disabled for localhost connection: %s",
+                self.server_url,
+            )
+        else:
+            # External HTTPS connection - enforce full TLS verification
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = True
+            ssl_context.verify_mode = ssl.CERT_REQUIRED
+            log.info("SSL verification enabled for connection to: %s", self.server_url)
+        
+        connector = aiohttp.TCPConnector(ssl=ssl_context)
+        self.http_session = aiohttp.ClientSession(connector=connector)
 
         if self.session_name:
             # Connect to existing session
