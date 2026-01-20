@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 from nio import AsyncClient  # pyright: ignore
 from nio.responses import ErrorResponse  # type: ignore
 from setproctitle import setproctitle
@@ -41,7 +41,7 @@ def main() -> None:
 
     signal.signal(signal.SIGTERM, _signal_handler)
 
-    load_dotenv()
+    load_dotenv(find_dotenv(usecwd=True))
 
     opts = CliOpts.parse_args()
 
