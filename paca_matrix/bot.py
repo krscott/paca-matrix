@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import time
+from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Any
 
@@ -10,6 +11,11 @@ from paca_matrix.matrix import MatrixClient
 from paca_matrix.opencode import OpencodeClient
 
 log = logging.getLogger(__name__)
+
+# Maximum number of event/message IDs to track for deduplication
+# This prevents unbounded memory growth in long-running bots
+MAX_SEEN_EVENT_IDS = 10000
+MAX_SENT_MESSAGE_IDS = 10000
 
 
 @dataclass
@@ -51,11 +57,27 @@ class PacaBot:
         )
         self.current_room: MatrixRoom | None = None
         self._event_listener_task: asyncio.Task[None] | None = None
-        self._seen_event_ids: set[str] = set()
+        # Use OrderedDict as LRU cache for seen event IDs (bounded memory)
+        self._seen_event_ids: OrderedDict[str, None] = OrderedDict()
         self._start_time_ms: int = int(time.time() * 1000)
-        self._sent_message_ids: set[str] = set()
+        # Use OrderedDict as LRU cache for sent message IDs (bounded memory)
+        self._sent_message_ids: OrderedDict[str, None] = OrderedDict()
         self._pending_question: PendingQuestion | None = None
         self._should_exit: bool = False
+
+    def _add_seen_event_id(self, event_id: str) -> None:
+        """Add an event ID to the seen set with LRU eviction."""
+        self._seen_event_ids[event_id] = None
+        # Evict oldest entries if we exceed the max size
+        while len(self._seen_event_ids) > MAX_SEEN_EVENT_IDS:
+            self._seen_event_ids.popitem(last=False)
+
+    def _add_sent_message_id(self, message_id: str) -> None:
+        """Add a message ID to the sent set with LRU eviction."""
+        self._sent_message_ids[message_id] = None
+        # Evict oldest entries if we exceed the max size
+        while len(self._sent_message_ids) > MAX_SENT_MESSAGE_IDS:
+            self._sent_message_ids.popitem(last=False)
 
     async def send_to_matrix(self, room: MatrixRoom, message: str) -> None:
         await self.matrix_bot.send_message(room, message)
@@ -87,7 +109,7 @@ class PacaBot:
             return
 
         if event.event_id:
-            self._seen_event_ids.add(event.event_id)
+            self._add_seen_event_id(event.event_id)
 
         log.info("Received from %s: %s", event.sender, event.body)
 
@@ -371,7 +393,7 @@ class PacaBot:
                     author,
                 )
                 if message_id:
-                    self._sent_message_ids.add(message_id)
+                        self._add_sent_message_id(message_id)
                 return
 
             if message_id and message_id not in self._sent_message_ids:
@@ -381,7 +403,7 @@ class PacaBot:
 
                     if full_message and self.current_room:
                         await self.send_to_matrix(self.current_room, full_message)
-                        self._sent_message_ids.add(message_id)
+                    self._add_sent_message_id(message_id)
                 except Exception as e:
                     log.exception(
                         "Failed to fetch and send message %s: %s", message_id, e

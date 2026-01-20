@@ -663,3 +663,53 @@ async def test_message_callback_unknown_command_error(
 
     # Should NOT send to OpenCode
     bot.opencode_client.prompt_async.assert_not_called()  # type: ignore[reportPrivateUsage]
+
+
+async def test_seen_event_ids_lru_eviction(
+    mock_matrix_client: Any, mock_opencode_client: Any
+) -> None:
+    """Test that seen event IDs are evicted when exceeding MAX_SEEN_EVENT_IDS."""
+    from paca_matrix.bot import MAX_SEEN_EVENT_IDS
+
+    bot = make_paca_bot()
+
+    # Add MAX_SEEN_EVENT_IDS + 100 event IDs
+    num_to_add = MAX_SEEN_EVENT_IDS + 100
+    for i in range(num_to_add):
+        bot._add_seen_event_id(f"event_{i}")  # type: ignore[reportPrivateUsage]
+
+    # Should only keep MAX_SEEN_EVENT_IDS entries
+    assert len(bot._seen_event_ids) == MAX_SEEN_EVENT_IDS  # type: ignore[reportPrivateUsage]
+
+    # Oldest entries should be evicted (event_0 through event_99)
+    for i in range(100):
+        assert f"event_{i}" not in bot._seen_event_ids  # type: ignore[reportPrivateUsage]
+
+    # Newest entries should be kept (event_100 onwards)
+    for i in range(100, num_to_add):
+        assert f"event_{i}" in bot._seen_event_ids  # type: ignore[reportPrivateUsage]
+
+
+async def test_sent_message_ids_lru_eviction(
+    mock_matrix_client: Any, mock_opencode_client: Any
+) -> None:
+    """Test that sent message IDs are evicted when exceeding MAX_SENT_MESSAGE_IDS."""
+    from paca_matrix.bot import MAX_SENT_MESSAGE_IDS
+
+    bot = make_paca_bot()
+
+    # Add MAX_SENT_MESSAGE_IDS + 50 message IDs
+    num_to_add = MAX_SENT_MESSAGE_IDS + 50
+    for i in range(num_to_add):
+        bot._add_sent_message_id(f"msg_{i}")  # type: ignore[reportPrivateUsage]
+
+    # Should only keep MAX_SENT_MESSAGE_IDS entries
+    assert len(bot._sent_message_ids) == MAX_SENT_MESSAGE_IDS  # type: ignore[reportPrivateUsage]
+
+    # Oldest entries should be evicted (msg_0 through msg_49)
+    for i in range(50):
+        assert f"msg_{i}" not in bot._sent_message_ids  # type: ignore[reportPrivateUsage]
+
+    # Newest entries should be kept (msg_50 onwards)
+    for i in range(50, num_to_add):
+        assert f"msg_{i}" in bot._sent_message_ids  # type: ignore[reportPrivateUsage]
