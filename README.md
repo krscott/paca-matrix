@@ -54,6 +54,12 @@ Once credentials are configured, run the bot:
 paca --opencode-server-url http://127.0.0.1:8765
 ```
 
+Or let paca start its own OpenCode server automatically:
+
+```bash
+paca
+```
+
 Or specify credentials manually:
 
 ```bash
@@ -65,11 +71,13 @@ paca --homeserver https://matrix.org --user-id @bot:example.com --device-id YOUR
 - `--user-id` - Matrix user ID
 - `--device-id` - Matrix device ID
 - `--access-token` - Matrix access token
-- `--opencode-server-url` - OpenCode server URL (required)
+- `--opencode-server-url` - OpenCode server URL (optional, auto-starts server if not provided)
+- `--opencode-port` - Port for the automatically started OpenCode server (optional)
 - `--session` - Session ID to connect to (optional)
 - `--model` - OpenCode model ID (optional)
 - `--verbose` - Enable debug logging
 - `--login` - Set up Matrix credentials interactively
+- `-c, --opencode-client` - Open the OpenCode client attached to paca's server
 
 ### Environment Variables
 
@@ -81,6 +89,7 @@ PACAMATRIX_USER_ID=@bot:example.com
 PACAMATRIX_ACCESS_TOKEN=YOUR_TOKEN
 PACAMATRIX_DEVICE_ID=YOUR_DEVICE_ID
 PACAMATRIX_OPENCODE_SERVER_URL=http://127.0.0.1:8765
+PACAMATRIX_OPENCODE_PORT=8765  # Optional: Port for auto-started OpenCode server
 PACAMATRIX_SESSION=SESSION_ID  # Optional: Session ID to connect to
 PACAMATRIX_MODEL=anthropic/claude-3-5-sonnet-20241022  # Optional: OpenCode model ID
 PACAMATRIX_VERBOSE=1  # Optional: Enable debug logging
@@ -94,7 +103,17 @@ paca
 
 ### OpenCode Server Modes
 
-The bot connects to OpenCode via HTTP. You must specify `--opencode-server-url`:
+The bot connects to OpenCode via HTTP. If you don't specify `--opencode-server-url`, paca will automatically start an OpenCode server:
+
+```bash
+# Run paca with auto-started OpenCode server
+paca
+
+# Or specify a port for the auto-started server
+paca --opencode-port 8765
+```
+
+Alternatively, you can connect to an existing OpenCode server:
 
 ```bash
 # In one terminal, start opencode serve
@@ -107,7 +126,25 @@ paca --opencode-server-url http://127.0.0.1:8765
 PACAMATRIX_OPENCODE_SERVER_URL=http://127.0.0.1:8765 paca
 ```
 
+You can also open the OpenCode client attached to paca's server from another terminal:
+
+```bash
+paca -c
+```
+
 ### Additional Options
+
+**OpenCode Server Port**
+```bash
+paca --opencode-port 8765  # Port for auto-started OpenCode server
+```
+Specifies the port for the automatically started OpenCode server. If not specified, an auto-assigned port will be used.
+
+**OpenCode Client**
+```bash
+paca --opencode-client
+```
+Opens the OpenCode client attached to paca's server. Useful for debugging or manual interaction.
 
 **Session Management**
 ```bash
