@@ -266,36 +266,36 @@ class PacaBot:
         if command == "!echo":
             if len(args) == 0:
                 await self.send_to_matrix("Usage: !echo <message>")
-                return True, ""
-            echo_msg = args[0]
-            await self.send_to_matrix(f"Echo: {echo_msg}")
-            return True, ""
+            else:
+                echo_msg = args[0]
+                await self.send_to_matrix(f"Echo: {echo_msg}")
 
-        if command == "!stop":
+        elif command == "!think":
+            await self.indicate_typing(False)
+
+        elif command == "!stop":
             try:
                 await self.opencode_client.abort_session()
                 await self.send_to_matrix("Agent stopped.")
-                return True, ""
             except Exception as e:
                 log.exception("Error stopping agent: %s", e)
                 await self.send_to_matrix(f"Error stopping agent: {e}")
-                return True, ""
 
-        if command == "!kill":
+        elif command == "!kill":
             try:
                 await self.opencode_client.abort_session()
                 await self.send_to_matrix("Agent killed. Exiting...")
                 self._should_exit = True
-                return True, ""
             except Exception as e:
                 log.exception("Error killing agent: %s", e)
                 await self.send_to_matrix(f"Error killing agent: {e}")
-                return True, ""
 
-        # Unknown command - send error
-        await self.send_to_matrix(
-            f"Unrecognized command '{command}'. (To send to agent, send an extra bang '!! ...')",
-        )
+        else:
+            # Unknown command - send error
+            await self.send_to_matrix(
+                f"Unrecognized command '{command}'. (To send to agent, send an extra bang '!! ...')",
+            )
+
         return True, ""
 
     async def _event_listener(self) -> None:
