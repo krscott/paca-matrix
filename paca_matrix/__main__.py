@@ -61,6 +61,7 @@ def main() -> None:
     if opts.login:
         asyncio.run(matrix_login())
     elif opts.opencode_client:
+        setproctitle("pacacode")
         run_opencode_attach(opts)
     else:
         try:
