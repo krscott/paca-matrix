@@ -16,7 +16,8 @@ def mock_matrix_client():
         matrix_bot_instance.client.user = "@bot:example.com"
         matrix_bot_instance.send_message = AsyncMock()
         matrix_bot_instance.read_receipt = AsyncMock()
-        matrix_bot_instance.set_typing = AsyncMock()
+        matrix_bot_instance.indicate_typing = AsyncMock()
+        matrix_bot_instance.indicate_typing = AsyncMock()
         matrix_bot_instance.stop = AsyncMock()
         mock.return_value = matrix_bot_instance
         yield matrix_bot_instance
@@ -56,7 +57,8 @@ async def test_send_to_matrix(
     bot = make_paca_bot()
 
     room = MagicMock()
-    await bot.send_to_matrix(room, "Hello, world!")
+    bot.current_room = room
+    await bot.send_to_matrix("Hello, world!")
 
     mock_matrix_client.send_message.assert_called_once_with(room, "Hello, world!")
 
@@ -455,7 +457,7 @@ async def test_handle_bang_command_echo_with_message(
     )
 
     assert result is True
-    assert message_to_send is None
+    assert message_to_send == ""
     call_args = bot.matrix_bot.send_message.call_args  # type: ignore[reportPrivateUsage]
     assert call_args[0][1] == "Echo: hello world"
 
@@ -473,7 +475,7 @@ async def test_handle_bang_command_echo_no_message(
     )  # pyright: ignore[reportPrivateUsage]
 
     assert result is True
-    assert message_to_send is None
+    assert message_to_send == ""
     call_args = bot.matrix_bot.send_message.call_args  # type: ignore[reportPrivateUsage]
     assert call_args[0][1] == "Usage: !echo <message>"
 
@@ -492,7 +494,7 @@ async def test_handle_bang_command_stop(
     )  # pyright: ignore[reportPrivateUsage]
 
     assert result is True
-    assert message_to_send is None
+    assert message_to_send == ""
     mock_opencode_client.abort_session.assert_called_once()
     call_args = bot.matrix_bot.send_message.call_args  # type: ignore[reportPrivateUsage]
     assert call_args[0][1] == "Agent stopped."
@@ -514,7 +516,7 @@ async def test_handle_bang_command_stop_error(
     )  # pyright: ignore[reportPrivateUsage]
 
     assert result is True
-    assert message_to_send is None
+    assert message_to_send == ""
     mock_opencode_client.abort_session.assert_called_once()
     call_args = bot.matrix_bot.send_message.call_args  # type: ignore[reportPrivateUsage]
     assert "Error stopping agent" in call_args[0][1]
@@ -535,7 +537,7 @@ async def test_handle_bang_command_unknown(
     )
 
     assert result is True
-    assert message_to_send is None
+    assert message_to_send == ""
     call_args = bot.matrix_bot.send_message.call_args  # type: ignore[reportPrivateUsage]
     assert "Unrecognized command '!unknown'" in call_args[0][1]
     assert "send an extra bang '!! ...'" in call_args[0][1]
