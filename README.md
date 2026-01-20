@@ -129,6 +129,8 @@ PACAMATRIX_OPENCODE_SERVER_URL=http://127.0.0.1:8765 paca
 You can also open the OpenCode client attached to paca's server from another terminal:
 
 ```bash
+# Start OpenCode client
+# You will still need to select the active session with /session command
 paca -c
 ```
 
