@@ -242,57 +242,44 @@ class OpencodeClient:
         event_id: str | None = None
         retry: int | None = None
 
-        buffer = b""
+        async for line_bytes in resp.content:
+            line = line_bytes.decode("utf-8").rstrip("\r\n")
 
-        # Use iter_any() to get raw chunks as they arrive, avoiding aiohttp's internal buffering
-        # which can add latency to the stream.
-        async for chunk in resp.content.iter_any():
-            buffer += chunk
+            if line.startswith(":"):
+                # Comment, ignore
+                continue
+            elif line == "":
+                # Empty line = dispatch event
+                if data_lines:
+                    data = "\n".join(data_lines)
+                    yield SSEEvent(
+                        event=event_type, data=data, id=event_id, retry=retry
+                    )
+                # Reset for next event
+                event_type = "message"
+                data_lines = []
+                event_id = None
+                retry = None
+            elif ":" in line:
+                field, _, value = line.partition(":")
+                if value.startswith(" "):
+                    value = value[1:]
 
-            while b"\n" in buffer:
-                line_bytes, buffer = buffer.split(b"\n", 1)
-
-                # Handle CRLF (if line ended in \r\n, line_bytes now ends in \r)
-                if line_bytes.endswith(b"\r"):
-                    line_bytes = line_bytes[:-1]
-
-                line = line_bytes.decode("utf-8")
-
-                if line.startswith(":"):
-                    # Comment, ignore
-                    continue
-                elif line == "":
-                    # Empty line = dispatch event
-                    if data_lines:
-                        data = "\n".join(data_lines)
-                        yield SSEEvent(
-                            event=event_type, data=data, id=event_id, retry=retry
-                        )
-                    # Reset for next event
-                    event_type = "message"
-                    data_lines = []
-                    event_id = None
-                    retry = None
-                elif ":" in line:
-                    field, _, value = line.partition(":")
-                    if value.startswith(" "):
-                        value = value[1:]
-
-                    if field == "event":
-                        event_type = value
-                    elif field == "data":
-                        data_lines.append(value)
-                    elif field == "id":
-                        event_id = value
-                    elif field == "retry":
-                        try:
-                            retry = int(value)
-                        except ValueError:
-                            pass
-                else:
-                    # Field with no value
-                    if line == "data":
-                        data_lines.append("")
+                if field == "event":
+                    event_type = value
+                elif field == "data":
+                    data_lines.append(value)
+                elif field == "id":
+                    event_id = value
+                elif field == "retry":
+                    try:
+                        retry = int(value)
+                    except ValueError:
+                        pass
+            else:
+                # Field with no value
+                if line == "data":
+                    data_lines.append("")
 
     async def reply_question(self, request_id: str, answers: list[list[str]]) -> None:
         """Reply to a question request from OpenCode."""
