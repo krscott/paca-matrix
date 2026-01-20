@@ -1,13 +1,20 @@
 # paca-matrix
 
-A Matrix bot that connects Matrix rooms to OpenCode for AI-powered responses.
+A Matrix bot that connects to OpenCode for remote vibe coding.
+
+## Security and Privacy
+
+This bot wraps an OpenCode isntance and as such is intended to only run in
+a **containerized** environment and connect to **trusted** chatrooms.
+
+This bot does not support Matrix end-to-end encryption.
+
+This bot is ~90% vibe-coded with itself. Caveat emptor.
 
 ## Features
 
 - Forwards Matrix messages to OpenCode and streams responses back
-- Async implementation using Python asyncio
-- E2E encryption support via matrix-nio
-- Supports both subprocess (`opencode acp`) and HTTP (`opencode serve`) modes
+- Sets up a local OpenCode server that can be separately attached to
 
 ## Installation
 
@@ -133,9 +140,6 @@ This automatically logs you in and saves credentials to `.env`.
 ## Development
 
 ```bash
-# Format code
-./format.sh
-
 # Type check
 mypy .
 
@@ -144,6 +148,9 @@ pytest
 
 # Run single test
 pytest tests/test_bot.py::test_bot_initialization
+
+# Format code
+./format.sh
 ```
 
 ## Documentation
