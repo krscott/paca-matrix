@@ -257,7 +257,7 @@ class PacaBot:
         """Background task that listens to OpenCode SSE events and forwards messages to Matrix."""
         try:
             async for sse_event in self.opencode_client.subscribe_events():
-                log.info(
+                log.debug(
                     "SSE event: %s, data: %s",
                     sse_event.event,
                     sse_event.data if sse_event.data else None,
@@ -380,7 +380,6 @@ class PacaBot:
                     full_message = "".join(parts)
 
                     if full_message and self.current_room:
-                        log.info("Sending message to Matrix: %s", full_message[:100])
                         await self.send_to_matrix(self.current_room, full_message)
                         self._sent_message_ids.add(message_id)
                 except Exception as e:

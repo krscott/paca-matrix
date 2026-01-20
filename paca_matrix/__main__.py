@@ -43,10 +43,15 @@ def main() -> None:
 
     logging.basicConfig(
         level=logging.DEBUG if opts.verbose else logging.INFO,
-        format="%(name)s %(message)s",
+        format="%(name)s %(levelname)s %(message)s",
     )
 
-    # Gets printed every tick, always disable
+    # INFO is still too verbose
+    logging.getLogger("nio").setLevel(
+        logging.DEBUG if opts.verbose else logging.WARNING
+    )
+
+    # DEBUG gets printed every tick, always disable
     logging.getLogger("nio.responses").setLevel(logging.INFO)
 
     if opts.login:

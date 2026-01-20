@@ -36,10 +36,10 @@ class MatrixClient:
     async def send_message(self, room: MatrixRoom, message: str) -> None:
         message = message.strip()
         if not message:
-            log.info("Skipping empty message")
+            log.warning("Skipping sending empty message")
             return
 
-        log.info("Sending to %s: %s", room.room_id, message)
+        log.debug("Sending to %s: %s", room.room_id, message)
 
         await self.client.room_send(
             room_id=room.room_id,
