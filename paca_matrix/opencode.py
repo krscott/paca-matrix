@@ -50,7 +50,7 @@ class OpencodeClient:
 
     async def _start_http(self) -> None:
         log.info("Connecting to OpenCode server at %s...", self.server_url)
-        
+
         # Create SSL context with verification enabled (default behavior enforced)
         # For localhost/127.0.0.1 connections, we allow unverified SSL since
         # the server is typically running on the same machine
@@ -73,7 +73,7 @@ class OpencodeClient:
             ssl_context.check_hostname = True
             ssl_context.verify_mode = ssl.CERT_REQUIRED
             log.info("SSL verification enabled for connection to: %s", self.server_url)
-        
+
         connector = aiohttp.TCPConnector(ssl=ssl_context)
         self.http_session = aiohttp.ClientSession(connector=connector)
 

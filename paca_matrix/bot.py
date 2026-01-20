@@ -393,7 +393,7 @@ class PacaBot:
                     author,
                 )
                 if message_id:
-                        self._add_sent_message_id(message_id)
+                    self._add_sent_message_id(message_id)
                 return
 
             if message_id and message_id not in self._sent_message_ids:
