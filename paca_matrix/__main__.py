@@ -155,13 +155,34 @@ async def matrix_login() -> None:
             log.error("Login failed: %s", response.message)
             return
 
+        # Validate credentials before writing to prevent injection
+        # Check for newlines or null bytes that could corrupt the .env file
+        for field_name, field_value in [
+            ("homeserver", homeserver),
+            ("user_id", response.user_id),
+            ("device_id", response.device_id),
+            ("access_token", response.access_token),
+        ]:
+            if (
+                "\n" in str(field_value)
+                or "\r" in str(field_value)
+                or "\0" in str(field_value)
+            ):
+                log.error(
+                    "Invalid %s contains newline or null byte, refusing to write .env",
+                    field_name,
+                )
+                return
+
         env_path = Path(".env")
-        env_content = f"""
-PACAMATRIX_HOMESERVER={homeserver}
-PACAMATRIX_USER_ID={response.user_id}
-PACAMATRIX_DEVICE_ID={response.device_id}
-PACAMATRIX_ACCESS_TOKEN={response.access_token}
-"""
+        # Use individual lines to avoid f-string injection issues
+        env_lines = [
+            f"PACAMATRIX_HOMESERVER={homeserver}",
+            f"PACAMATRIX_USER_ID={response.user_id}",
+            f"PACAMATRIX_DEVICE_ID={response.device_id}",
+            f"PACAMATRIX_ACCESS_TOKEN={response.access_token}",
+        ]
+        env_content = "\n".join(env_lines) + "\n"
 
         env_path.write_text(env_content)
         os.chmod(env_path, 0o600)

@@ -9,6 +9,12 @@ import aiohttp
 
 log = logging.getLogger(__name__)
 
+# Input validation limits
+MAX_MESSAGE_LENGTH = 100_000  # 100KB max message size
+MAX_MESSAGE_ID_LENGTH = 1000  # Reasonable limit for message IDs
+MAX_REQUEST_ID_LENGTH = 1000  # Reasonable limit for request IDs
+MAX_SESSION_NAME_LENGTH = 500  # Reasonable limit for session names
+
 
 class SSEEvent:
     """Represents a Server-Sent Event."""
@@ -39,6 +45,16 @@ class OpencodeClient:
         session_name: str | None = None,
         model: str | None = None,
     ) -> None:
+        # Validate session_name if provided
+        if session_name is not None:
+            if len(session_name) > MAX_SESSION_NAME_LENGTH:
+                raise ValueError(
+                    f"Session name too long: {len(session_name)} > {MAX_SESSION_NAME_LENGTH}"
+                )
+            # Session names should be alphanumeric with hyphens/underscores
+            if not session_name.replace("-", "").replace("_", "").isalnum():
+                raise ValueError(f"Invalid session name format: {session_name}")
+
         self.session_id: str | None = None
         self.server_url = server_url
         self.session_name = session_name
@@ -114,6 +130,12 @@ class OpencodeClient:
         if not self.session_id or not self.http_session or not self.server_url:
             raise RuntimeError("HTTP session not initialized")
 
+        # Validate message length
+        if len(message) > MAX_MESSAGE_LENGTH:
+            raise ValueError(
+                f"Message too long: {len(message)} > {MAX_MESSAGE_LENGTH} characters"
+            )
+
         url = f"{self.server_url}/session/{self.session_id}/prompt_async"
         log.debug("Sending async message to: %s", url)
 
@@ -140,6 +162,12 @@ class OpencodeClient:
         """Get all text parts for a message from the session."""
         if not self.session_id or not self.http_session or not self.server_url:
             raise RuntimeError("HTTP session not initialized")
+
+        # Validate message_id to prevent path traversal or injection
+        if not message_id or len(message_id) > MAX_MESSAGE_ID_LENGTH:
+            raise ValueError(f"Invalid message_id length: {len(message_id)}")
+        if not message_id.replace("-", "").replace("_", "").isalnum():
+            raise ValueError(f"Invalid message_id format: {message_id}")
 
         url = f"{self.server_url}/session/{self.session_id}/message/{message_id}"
         log.debug("Fetching message parts from: %s", url)
@@ -257,6 +285,12 @@ class OpencodeClient:
         """Reply to a question request from OpenCode."""
         if not self.http_session or not self.server_url:
             raise RuntimeError("HTTP session not initialized")
+
+        # Validate request_id to prevent path traversal or injection
+        if not request_id or len(request_id) > MAX_REQUEST_ID_LENGTH:
+            raise ValueError(f"Invalid request_id length: {len(request_id)}")
+        if not request_id.replace("-", "").replace("_", "").isalnum():
+            raise ValueError(f"Invalid request_id format: {request_id}")
 
         url = f"{self.server_url}/question/{request_id}/reply"
         log.debug("Replying to question: %s", url)

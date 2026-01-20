@@ -1,3 +1,4 @@
+import time
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -713,3 +714,117 @@ async def test_sent_message_ids_lru_eviction(
     # Newest entries should be kept (msg_50 onwards)
     for i in range(50, num_to_add):
         assert f"msg_{i}" in bot._sent_message_ids  # type: ignore[reportPrivateUsage]
+
+
+async def test_message_length_validation(
+    mock_matrix_client: Any, mock_opencode_client: Any
+) -> None:
+    """Test that oversized messages are rejected."""
+    from paca_matrix.bot import MAX_MESSAGE_LENGTH
+
+    bot = make_paca_bot()
+
+    # Valid message should pass
+    assert bot._validate_message_length("Hello", "test")  # type: ignore[reportPrivateUsage]
+
+    # Oversized message should fail
+    oversized = "x" * (MAX_MESSAGE_LENGTH + 1)
+    assert not bot._validate_message_length(oversized, "test")  # type: ignore[reportPrivateUsage]
+
+
+async def test_message_callback_rejects_oversized_message(
+    mock_matrix_client: Any, mock_opencode_client: Any
+) -> None:
+    """Test that oversized messages from Matrix are rejected with error message."""
+    from nio import RoomMessageText
+
+    from paca_matrix.bot import MAX_MESSAGE_LENGTH
+
+    bot = make_paca_bot()
+
+    # Create oversized message
+    oversized_body = "x" * (MAX_MESSAGE_LENGTH + 1)
+
+    room = MagicMock()
+    room.room_id = "!test:example.com"
+    event = MagicMock(spec=RoomMessageText)
+    event.sender = "@user:example.com"
+    event.body = oversized_body
+    event.event_id = "oversized_event"
+    event.server_timestamp = int(time.time() * 1000) + 1000
+
+    await bot.message_callback(room, event)
+
+    # Should send error message to user
+    bot.matrix_bot.send_message.assert_called_once()  # type: ignore[reportPrivateUsage]
+    call_args = bot.matrix_bot.send_message.call_args[0]  # type: ignore[reportPrivateUsage]
+    assert "too long" in str(call_args[1]).lower()
+
+    # Should NOT forward to OpenCode
+    bot.opencode_client.prompt_async.assert_not_called()  # type: ignore[reportPrivateUsage]
+
+
+async def test_question_response_too_many_selections(
+    mock_matrix_client: Any, mock_opencode_client: Any
+) -> None:
+    """Test that question responses with too many selections are rejected."""
+    from paca_matrix.bot import MAX_QUESTION_RESPONSE_SELECTIONS
+
+    bot = make_paca_bot()
+    bot.current_room = MagicMock()
+
+    # Set up a pending question
+    options = [QuestionOption(label=f"Option {i}", description="") for i in range(100)]
+    bot._pending_question = PendingQuestion(  # type: ignore[reportPrivateUsage]
+        request_id="req123", question="Test?", options=options, multiple=True
+    )
+
+    # Create response with too many selections
+    too_many = ",".join(str(i) for i in range(1, MAX_QUESTION_RESPONSE_SELECTIONS + 2))
+    result = await bot._handle_question_response(too_many)  # type: ignore[reportPrivateUsage]
+
+    # Should be handled (returns True)
+    assert result is True
+
+    # Should send error message
+    bot.matrix_bot.send_message.assert_called_once()  # type: ignore[reportPrivateUsage]
+    call_args = bot.matrix_bot.send_message.call_args[0]  # type: ignore[reportPrivateUsage]
+    assert "too many" in call_args[1].lower()
+
+
+async def test_question_event_too_many_options(
+    mock_matrix_client: Any, mock_opencode_client: Any
+) -> None:
+    """Test that questions with too many options are rejected."""
+    from paca_matrix.bot import MAX_QUESTION_OPTIONS
+
+    bot = make_paca_bot()
+    bot.current_room = MagicMock()
+
+    # Create question with too many options
+    options_data = [
+        {"label": f"Option {i}", "description": "desc"}
+        for i in range(MAX_QUESTION_OPTIONS + 1)
+    ]
+
+    properties = {
+        "id": "req123",
+        "questions": [
+            {
+                "question": "Which option?",
+                "header": "Test",
+                "options": options_data,
+                "multiple": False,
+            }
+        ],
+    }
+
+    await bot._handle_question_event(properties)  # type: ignore[reportPrivateUsage]
+
+    # Should send error message
+    bot.matrix_bot.send_message.assert_called_once()  # type: ignore[reportPrivateUsage]
+    call_args = bot.matrix_bot.send_message.call_args[0]  # type: ignore[reportPrivateUsage]
+    assert "too many options" in call_args[1].lower()
+
+    # Should NOT set pending question
+    assert bot._pending_question is None  # type: ignore[reportPrivateUsage]

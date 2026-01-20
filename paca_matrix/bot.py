@@ -17,6 +17,11 @@ log = logging.getLogger(__name__)
 MAX_SEEN_EVENT_IDS = 10000
 MAX_SENT_MESSAGE_IDS = 10000
 
+# Input validation limits to prevent abuse and resource exhaustion
+MAX_MESSAGE_LENGTH = 100_000  # 100KB max message size
+MAX_QUESTION_OPTIONS = 100  # Maximum number of question options
+MAX_QUESTION_RESPONSE_SELECTIONS = 50  # Maximum selections in multi-select
+
 
 @dataclass
 class QuestionOption:
@@ -79,6 +84,21 @@ class PacaBot:
         while len(self._sent_message_ids) > MAX_SENT_MESSAGE_IDS:
             self._sent_message_ids.popitem(last=False)
 
+    def _validate_message_length(self, message: str, context: str = "message") -> bool:
+        """Validate message length to prevent resource exhaustion.
+
+        Returns True if valid, False if too long.
+        """
+        if len(message) > MAX_MESSAGE_LENGTH:
+            log.warning(
+                "%s exceeds maximum length: %d > %d",
+                context,
+                len(message),
+                MAX_MESSAGE_LENGTH,
+            )
+            return False
+        return True
+
     async def send_to_matrix(self, room: MatrixRoom, message: str) -> None:
         await self.matrix_bot.send_message(room, message)
 
@@ -111,7 +131,17 @@ class PacaBot:
         if event.event_id:
             self._add_seen_event_id(event.event_id)
 
-        log.info("Received from %s: %s", event.sender, event.body)
+        log.info("Received from %s: %s", event.sender, event.body[:100])
+
+        # Validate message length
+        if not self._validate_message_length(event.body, "Matrix message"):
+            log.warning("Rejecting oversized message from %s", event.sender)
+            await self.matrix_bot.send_message(
+                room,
+                f"Message too long (max {MAX_MESSAGE_LENGTH:,} characters). "
+                f"Your message was {len(event.body):,} characters.",
+            )
+            return
 
         # Mark message as read
         if event.event_id:
@@ -159,7 +189,21 @@ class PacaBot:
         # Check if response is a number or comma-separated numbers
         try:
             if self._pending_question.multiple:
-                indices = [int(x.strip()) for x in response.split(",")]
+                parts = response.split(",")
+                # Prevent DoS via extremely long comma-separated lists
+                if len(parts) > MAX_QUESTION_RESPONSE_SELECTIONS:
+                    log.warning(
+                        "Too many selections in question response: %d > %d",
+                        len(parts),
+                        MAX_QUESTION_RESPONSE_SELECTIONS,
+                    )
+                    if self.current_room:
+                        await self.send_to_matrix(
+                            self.current_room,
+                            f"Too many selections (max {MAX_QUESTION_RESPONSE_SELECTIONS})",
+                        )
+                    return True
+                indices = [int(x.strip()) for x in parts]
             else:
                 indices = [int(response)]
         except ValueError:
@@ -324,6 +368,21 @@ class PacaBot:
 
         if not question or not question_options:
             log.warning("Invalid question event: missing question or options")
+            return
+
+        # Validate question size to prevent resource exhaustion
+        if len(question_options) > MAX_QUESTION_OPTIONS:
+            log.warning(
+                "Too many question options: %d > %d",
+                len(question_options),
+                MAX_QUESTION_OPTIONS,
+            )
+            if self.current_room:
+                await self.send_to_matrix(
+                    self.current_room,
+                    f"Question has too many options ({len(question_options)}), "
+                    f"maximum is {MAX_QUESTION_OPTIONS}. Please simplify the question.",
+                )
             return
 
         log.info("Received question: %s", question[:100])
