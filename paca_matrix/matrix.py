@@ -2,6 +2,7 @@ import asyncio
 import logging
 import ssl
 from collections.abc import Awaitable, Callable
+import time
 
 from nio import (
     AsyncClient,
@@ -54,6 +55,8 @@ class MatrixClient:
         )
         self.client.access_token = access_token
 
+        self._last_sent_typing_s = 0.0
+
     async def send_message(self, room: MatrixRoom, message: str) -> None:
         message = message.strip()
         if not message:
@@ -76,14 +79,18 @@ class MatrixClient:
     async def indicate_typing(self, room: MatrixRoom, typing: bool = True) -> None:
         """Set or clear typing notification for a room."""
 
-        log.info("Typing...")
+        timeout_s = 5.0 if typing else 0.0
 
-        timeout = 5000 if typing else 0
-        await self.client.room_typing(
-            room_id=room.room_id,
-            typing_state=typing,
-            timeout=timeout,
-        )
+        now_s = time.time()
+
+        if self._last_sent_typing_s + timeout_s < now_s:
+            self._last_sent_typing_s = now_s
+            log.info("Typing...")
+            await self.client.room_typing(
+                room_id=room.room_id,
+                typing_state=typing,
+                timeout=int(timeout_s * 1000),
+            )
 
     async def setup_message_handler(
         self, callback: Callable[[MatrixRoom, Event], Awaitable[None]]
