@@ -2,12 +2,13 @@
   python,
   buildPythonApplication,
   lib,
-  python-dotenv,
-  matrix-nio,
   aiohttp,
-  setuptools,
+  matrix-nio,
   pytest,
   pytest-asyncio,
+  python-dotenv,
+  setproctitle,
+  setuptools,
 }:
 buildPythonApplication {
   name = "paca-matrix";
@@ -20,6 +21,7 @@ buildPythonApplication {
     python-dotenv
     matrix-nio
     aiohttp
+    setproctitle
   ];
 
   nativeCheckInputs = [

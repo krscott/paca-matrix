@@ -5,6 +5,7 @@ import logging
 import os
 import re
 import signal
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -12,6 +13,7 @@ from typing import Any
 from dotenv import load_dotenv
 from nio import AsyncClient  # pyright: ignore
 from nio.responses import ErrorResponse  # type: ignore
+from setproctitle import setproctitle
 
 from paca_matrix.bot import PacaBot
 
@@ -35,6 +37,8 @@ def _signal_handler(signum: int, frame: Any) -> None:
 
 
 def main() -> None:
+    setproctitle("paca")
+
     signal.signal(signal.SIGTERM, _signal_handler)
 
     load_dotenv()
@@ -56,6 +60,8 @@ def main() -> None:
 
     if opts.login:
         asyncio.run(matrix_login())
+    elif opts.opencode_client:
+        run_opencode_attach(opts)
     else:
         try:
             asyncio.run(run_bot(opts))
@@ -107,6 +113,14 @@ async def stop_opencode_server(process: asyncio.subprocess.Process) -> None:
         log.warning("opencode server did not stop gracefully, killing...")
         process.kill()
         await process.wait()
+
+
+def run_opencode_attach(opts: "CliOpts") -> None:
+    """Run opencode attach command to connect to the opencode server."""
+    port = opts.opencode_port or 0
+    url = f"http://127.0.0.1:{port}"
+    log.info("Attaching to opencode server at %s", url)
+    subprocess.run(["opencode", "attach", url])
 
 
 async def matrix_login() -> None:
@@ -215,6 +229,7 @@ class CliOpts:
     opencode_port: int | None
     session_name: str | None
     model: str | None
+    opencode_client: bool
 
     @staticmethod
     def parse_args() -> "CliOpts":
@@ -290,6 +305,12 @@ class CliOpts:
             env_var="PACAMATRIX_MODEL",
             help="OpenCode model ID, e.g. 'anthropic/claude-3-5-sonnet-20241022' (env: PACAMATRIX_MODEL)",
         )
+        parser.add_argument(
+            "-c",
+            "--opencode-client",
+            action="store_true",
+            help="Open the OpenCode client attached to paca's server",
+        )
 
         args = parser.parse_args()
 
@@ -311,6 +332,7 @@ class CliOpts:
             opencode_port=args.opencode_port,
             session_name=args.session,
             model=args.model,
+            opencode_client=args.opencode_client,
         )
 
 
