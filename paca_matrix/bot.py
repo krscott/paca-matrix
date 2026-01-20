@@ -99,9 +99,14 @@ class PacaBot:
             return False
         return True
 
-    async def send_to_matrix(self, room: MatrixRoom | None, message: str) -> None:
-        if room:
-            await self.matrix_bot.send_message(room, message)
+    async def indicate_typing(self, value: bool) -> None:
+        if self.current_room:
+            await self.matrix_bot.indicate_typing(self.current_room, typing=value)
+
+    async def send_to_matrix(self, message: str) -> None:
+        if self.current_room:
+            await self.matrix_bot.send_message(self.current_room, message)
+        await self.indicate_typing(False)
 
     async def message_callback(self, room: MatrixRoom, event: Event) -> None:
         """Handle incoming Matrix messages by forwarding them to OpenCode.
@@ -151,7 +156,6 @@ class PacaBot:
         # Track the current room for sending OpenCode responses
         self.current_room = room
 
-        message_to_send = event.body
         # Check if this is a bang command
         if event.body.startswith("!"):
             command_handled, message_to_send = await self._handle_bang_command(
@@ -159,6 +163,8 @@ class PacaBot:
             )
             if command_handled:
                 return
+        else:
+            message_to_send = event.body
 
         # Check if this is a response to a pending question
         if self._pending_question:
@@ -167,8 +173,7 @@ class PacaBot:
                 return
 
         try:
-            if message_to_send is not None:
-                await self.opencode_client.prompt_async(message_to_send)
+            await self.opencode_client.prompt_async(message_to_send)
         except Exception as e:
             log.exception("Error sending message to OpenCode: %s", e)
             await self.matrix_bot.client.room_send(
@@ -199,7 +204,6 @@ class PacaBot:
                         MAX_QUESTION_RESPONSE_SELECTIONS,
                     )
                     await self.send_to_matrix(
-                        self.current_room,
                         f"Too many selections (max {MAX_QUESTION_RESPONSE_SELECTIONS})",
                     )
                     return True
@@ -219,16 +223,13 @@ class PacaBot:
             else:
                 log.warning("Invalid question index: %d", idx)
                 await self.send_to_matrix(
-                    self.current_room,
                     f"Invalid selection: {idx}. Please choose 1-{max_index}",
                 )
                 return True
 
         if not valid_indices:
             log.warning("No valid indices in response")
-            await self.send_to_matrix(
-                self.current_room, "Invalid selection. Please try again."
-            )
+            await self.send_to_matrix("Invalid selection. Please try again.")
             return True
 
         # Convert indices to labels for sending to OpenCode
@@ -247,63 +248,55 @@ class PacaBot:
             return True
         except Exception as e:
             log.exception("Failed to submit question answer: %s", e)
-            await self.send_to_matrix(
-                self.current_room, f"Error submitting answer: {e}"
-            )
+            await self.send_to_matrix(f"Error submitting answer: {e}")
             return True
 
-    async def _handle_bang_command(self, message: str) -> tuple[bool, str | None]:
+    async def _handle_bang_command(self, message: str) -> tuple[bool, str]:
         """Handle bang commands. Returns (handled, message_to_send)."""
         # Handle !! as escape to send to OpenCode
         if message.startswith("!!"):
             return False, message[1:]  # Strip one bang
 
         parts = message.strip().split(maxsplit=1)
-        if not parts:
-            return False, None
+        assert len(parts) > 0
 
         command = parts[0].lower()
         args = parts[1:] if len(parts) > 1 else []
 
         if command == "!echo":
             if len(args) == 0:
-                await self.send_to_matrix(self.current_room, "Usage: !echo <message>")
-                return True, None
+                await self.send_to_matrix("Usage: !echo <message>")
+                return True, ""
             echo_msg = args[0]
-            await self.send_to_matrix(self.current_room, f"Echo: {echo_msg}")
-            return True, None
+            await self.send_to_matrix(f"Echo: {echo_msg}")
+            return True, ""
 
         if command == "!stop":
             try:
                 await self.opencode_client.abort_session()
-                await self.send_to_matrix(self.current_room, "Agent stopped.")
-                return True, None
+                await self.send_to_matrix("Agent stopped.")
+                return True, ""
             except Exception as e:
                 log.exception("Error stopping agent: %s", e)
-                await self.send_to_matrix(
-                    self.current_room, f"Error stopping agent: {e}"
-                )
-                return True, None
+                await self.send_to_matrix(f"Error stopping agent: {e}")
+                return True, ""
 
         if command == "!kill":
             try:
                 await self.opencode_client.abort_session()
-                await self.send_to_matrix(self.current_room, "Agent killed. Exiting...")
+                await self.send_to_matrix("Agent killed. Exiting...")
                 self._should_exit = True
-                return True, None
+                return True, ""
             except Exception as e:
                 log.exception("Error killing agent: %s", e)
-                await self.send_to_matrix(
-                    self.current_room, f"Error killing agent: {e}"
-                )
-                return True, None
+                await self.send_to_matrix(f"Error killing agent: {e}")
+                return True, ""
 
         # Unknown command - send error
         await self.send_to_matrix(
-            self.current_room,
             f"Unrecognized command '{command}'. (To send to agent, send an extra bang '!! ...')",
         )
-        return True, None
+        return True, ""
 
     async def _event_listener(self) -> None:
         """Background task that listens to OpenCode SSE events and forwards messages to Matrix."""
@@ -364,7 +357,6 @@ class PacaBot:
                 MAX_QUESTION_OPTIONS,
             )
             await self.send_to_matrix(
-                self.current_room,
                 f"Question has too many options ({len(question_options)}), "
                 f"maximum is {MAX_QUESTION_OPTIONS}. Please simplify the question.",
             )
@@ -408,7 +400,7 @@ class PacaBot:
 
         message = "\n".join(lines)
 
-        await self.send_to_matrix(self.current_room, message)
+        await self.send_to_matrix(message)
 
     async def _handle_opencode_event(self, data: dict[str, Any]) -> None:
         """Process a single OpenCode event and send to Matrix if appropriate."""
@@ -445,22 +437,16 @@ class PacaBot:
                     full_message = "".join(parts)
 
                     if full_message:
-                        await self.send_to_matrix(self.current_room, full_message)
-                        # Clear typing notification after sending message
-                        if self.current_room:
-                            await self.matrix_bot.set_typing(
-                                self.current_room, typing=False
-                            )
+                        await self.send_to_matrix(full_message)
                     self._add_sent_message_id(message_id)
                 except Exception as e:
                     log.exception(
                         "Failed to fetch and send message %s: %s", message_id, e
                     )
 
-        else:
+        elif event_type and event_type.startswith("message."):
             # Send typing notification to indicate agent is working
-            if self.current_room:
-                await self.matrix_bot.set_typing(self.current_room, typing=True)
+            await self.indicate_typing(True)
 
     async def run_forever(self) -> None:
         log.info("Starting bot...")
