@@ -85,7 +85,7 @@ class MatrixClient:
 
         if self._last_sent_typing_s + timeout_s < now_s:
             self._last_sent_typing_s = now_s
-            log.info("Typing...")
+            log.info("Thinking...")
             await self.client.room_typing(
                 room_id=room.room_id,
                 typing_state=typing,

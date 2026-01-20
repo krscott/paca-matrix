@@ -158,6 +158,7 @@ class OpencodeClient:
 
         log.debug("Async message sent successfully")
 
+    # TODO: Just make this function return the combined string
     async def get_message_parts(self, message_id: str) -> list[str]:
         """Get all text parts for a message from the session."""
         if not self.session_id or not self.http_session or not self.server_url:

@@ -435,10 +435,9 @@ class PacaBot:
                 try:
                     parts = await self.opencode_client.get_message_parts(message_id)
                     full_message = "".join(parts)
-
                     if full_message:
+                        self._add_sent_message_id(message_id)
                         await self.send_to_matrix(full_message)
-                    self._add_sent_message_id(message_id)
                 except Exception as e:
                     log.exception(
                         "Failed to fetch and send message %s: %s", message_id, e
