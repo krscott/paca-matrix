@@ -290,6 +290,21 @@ class PacaBot:
                 log.exception("Error killing agent: %s", e)
                 await self.send_to_matrix(f"Error killing agent: {e}")
 
+        elif command == "!uptime":
+            import subprocess
+
+            result = subprocess.run(
+                ["uptime", "-p"], capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0:
+                uptime_str = result.stdout.strip()
+            else:
+                result = subprocess.run(
+                    ["uptime"], capture_output=True, text=True, timeout=5
+                )
+                uptime_str = result.stdout.strip()
+            await self.send_to_matrix(f"Uptime: {uptime_str}")
+
         else:
             # Unknown command - send error
             await self.send_to_matrix(
