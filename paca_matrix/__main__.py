@@ -6,6 +6,7 @@ import os
 import re
 import signal
 import subprocess
+import webbrowser
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -64,6 +65,8 @@ def main() -> None:
     elif opts.opencode_client:
         setproctitle("pacacode")
         run_opencode_attach(opts)
+    elif opts.opencode_web:
+        run_opencode_web(opts)
     else:
         try:
             asyncio.run(run_bot(opts))
@@ -121,6 +124,14 @@ def run_opencode_attach(opts: "CliOpts") -> None:
     url = f"http://127.0.0.1:{port}"
     log.info("Attaching to opencode server at %s", url)
     subprocess.run(["opencode", "attach", url])
+
+
+def run_opencode_web(opts: "CliOpts") -> None:
+    """Open the web view for the opencode server."""
+    port = opts.opencode_port or 0
+    url = f"http://127.0.0.1:{port}"
+    log.info("Opening opencode web view at %s", url)
+    webbrowser.open(url)
 
 
 async def matrix_login() -> None:
@@ -251,6 +262,7 @@ class CliOpts:
     session_name: str | None
     model: str | None
     opencode_client: bool
+    opencode_web: bool
 
     @staticmethod
     def parse_args() -> "CliOpts":
@@ -332,6 +344,12 @@ class CliOpts:
             action="store_true",
             help="Open the OpenCode client attached to paca's server",
         )
+        parser.add_argument(
+            "-w",
+            "--opencode-web",
+            action="store_true",
+            help="Open the OpenCode web view for paca's server",
+        )
 
         args = parser.parse_args()
 
@@ -354,6 +372,7 @@ class CliOpts:
             session_name=args.session,
             model=args.model,
             opencode_client=args.opencode_client,
+            opencode_web=args.opencode_web,
         )
 
 
