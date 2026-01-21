@@ -19,6 +19,7 @@ from paca_matrix.bot import PacaBot
 
 DEFAULT_MATRIX_HOMESERVER = "https://matrix.org"
 DEFAULT_BOT_NAME = "paca-bot"
+DEFAULT_PORT = 4096
 
 log = logging.getLogger(__name__)
 
@@ -70,11 +71,9 @@ def main() -> None:
             pass
 
 
-async def start_opencode_server(
-    port: int = 0,
-) -> tuple[str, asyncio.subprocess.Process]:
+async def start_opencode_server(port: int) -> tuple[str, asyncio.subprocess.Process]:
     """Start an opencode server subprocess and return the server URL and process."""
-    log.info("Starting opencode server on port %s...", port if port > 0 else "auto")
+    log.info("Starting opencode server on port %s...", port)
 
     process = await asyncio.create_subprocess_exec(
         "opencode",
@@ -213,7 +212,7 @@ async def run_bot(opts: "CliOpts") -> None:
     if opencode_server_url is None:
         log.info("No opencode server URL provided, starting opencode server...")
         opencode_server_url, _opencode_process = await start_opencode_server(
-            port=opts.opencode_port or 0
+            port=opts.opencode_port
         )
 
     bot = PacaBot(
@@ -248,7 +247,7 @@ class CliOpts:
     device_id: str | None
     access_token: str | None
     opencode_server_url: str | None
-    opencode_port: int | None
+    opencode_port: int
     session_name: str | None
     model: str | None
     opencode_client: bool
@@ -307,11 +306,11 @@ class CliOpts:
         )
         parser.add_argument(
             "--opencode-port",
-            required=False,
+            default=DEFAULT_PORT,
             action=EnvAction,
             env_var="PACAMATRIX_OPENCODE_PORT",
             type=int,
-            help="Port for the automatically started opencode server (env: PACAMATRIX_OPENCODE_PORT). Default is to use an auto-assigned port (0)",
+            help=f"Port for the automatically started opencode server (env: PACAMATRIX_OPENCODE_PORT, default: {DEFAULT_PORT})",
         )
         parser.add_argument(
             "--session",
