@@ -243,6 +243,24 @@ async def run_bot(opts: "CliOpts") -> None:
 
     global _bot_instance, _opencode_process
 
+    if not opts.model:
+        log.warning("Warning: --model or PACAMATRIX_MODEL is not set.")
+        log.info("It is recommended to set this in your .env file.")
+        try:
+            process = await asyncio.create_subprocess_exec(
+                "opencode",
+                "models",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await process.communicate()
+            if stdout:
+                log.info("Available models:\n%s", stdout.decode().strip())
+            if stderr:
+                log.debug("opencode models stderr: %s", stderr.decode())
+        except Exception as e:
+            log.warning("Failed to list models: %s", e)
+
     opencode_server_url = opts.opencode_server_url
 
     if opencode_server_url is None:

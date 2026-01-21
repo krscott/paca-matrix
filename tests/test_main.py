@@ -27,9 +27,9 @@ def test_run_opencode_web_no_session(
     mock_file = MagicMock()
     mock_file.exists.return_value = False
     mock_path.return_value = mock_file
-    
+
     run_opencode_web(4096, None)
-    
+
     mock_webbrowser.open.assert_called_once_with("http://127.0.0.1:4096")
 
 
@@ -38,21 +38,23 @@ def test_run_opencode_web_with_explicit_session(
 ) -> None:
     """Test run_opencode_web with explicit session ID."""
     session_id = "ses_test123"
-    
+
     # Mock cwd
     mock_cwd = MagicMock()
     # Mock resolve to return a real Path object string representation or just a string
     # str(path) is called in the code
-    mock_cwd.resolve.return_value = "/home/user/project" 
+    mock_cwd.resolve.return_value = "/home/user/project"
     mock_path.cwd.return_value = mock_cwd
-    
+
     # Expected project ID
     # /home/user/project -> L2hvbWUvdXNlci9wcm9qZWN0 (base64)
-    expected_project_id = base64.urlsafe_b64encode(b"/home/user/project").decode().rstrip("=")
+    expected_project_id = (
+        base64.urlsafe_b64encode(b"/home/user/project").decode().rstrip("=")
+    )
     expected_url = f"http://127.0.0.1:4096/{expected_project_id}/session/{session_id}"
-    
+
     run_opencode_web(4096, session_id)
-    
+
     mock_webbrowser.open.assert_called_once_with(expected_url)
 
 
@@ -61,23 +63,23 @@ def test_run_opencode_web_with_stored_session(
 ) -> None:
     """Test run_opencode_web with stored session ID from file."""
     session_id = "ses_stored"
-    
+
     # Mock .paca_session
     mock_file = MagicMock()
     mock_file.exists.return_value = True
     mock_file.read_text.return_value = session_id
-    
+
     # Mock Path constructor
     mock_path.return_value = mock_file
-    
+
     # Mock cwd
     mock_cwd = MagicMock()
     mock_cwd.resolve.return_value = "/opt/app"
     mock_path.cwd.return_value = mock_cwd
-    
+
     expected_project_id = base64.urlsafe_b64encode(b"/opt/app").decode().rstrip("=")
     expected_url = f"http://127.0.0.1:4096/{expected_project_id}/session/{session_id}"
-    
+
     run_opencode_web(4096, None)
-    
+
     mock_webbrowser.open.assert_called_once_with(expected_url)
