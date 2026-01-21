@@ -86,6 +86,7 @@ class MatrixClient:
         if self._last_sent_typing_s + timeout_s / 2.0 < now_s:
             self._last_sent_typing_s = now_s if typing else 0
             log.debug("Typing...")
+            # TODO: This isn't working
             await self.client.room_typing(
                 room_id=room.room_id,
                 typing_state=typing,
@@ -112,6 +113,7 @@ class MatrixClient:
             while True:
                 await self.client.sync()
         except (KeyboardInterrupt, asyncio.CancelledError):
+            # TODO: Why have a try-except if we just re-raise?
             raise
 
     async def stop(self) -> None:
