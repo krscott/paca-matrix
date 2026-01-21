@@ -450,6 +450,16 @@ class PacaBot:
     async def run_forever(self) -> None:
         log.info("Starting bot...")
         await self.opencode_client.start()
+
+        # Save session ID to .paca_session for CLI tools
+        if self.opencode_client.session_id:
+            try:
+                from pathlib import Path
+
+                Path(".paca_session").write_text(self.opencode_client.session_id)
+            except Exception as e:
+                log.warning("Failed to save session ID to .paca_session: %s", e)
+
         await self.matrix_bot.setup_message_handler(self.message_callback)
 
         # Start the event listener as a background task

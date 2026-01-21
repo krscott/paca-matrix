@@ -123,13 +123,37 @@ def run_opencode_attach(opts: "CliOpts") -> None:
     port = opts.opencode_port or 0
     url = f"http://127.0.0.1:{port}"
     log.info("Attaching to opencode server at %s", url)
-    subprocess.run(["opencode", "attach", url])
+    
+    cmd = ["opencode", "attach", url]
+    
+    session_id = opts.session_name
+    if not session_id and Path(".paca_session").exists():
+        try:
+            session_id = Path(".paca_session").read_text().strip()
+        except Exception:
+            pass
+            
+    if session_id:
+        cmd.extend(["-s", session_id])
+        
+    subprocess.run(cmd)
 
 
 def run_opencode_web(opts: "CliOpts") -> None:
     """Open the web view for the opencode server."""
     port = opts.opencode_port or 0
     url = f"http://127.0.0.1:{port}"
+    
+    session_id = opts.session_name
+    if not session_id and Path(".paca_session").exists():
+        try:
+            session_id = Path(".paca_session").read_text().strip()
+        except Exception:
+            pass
+
+    if session_id:
+        url = f"{url}/?session={session_id}"
+
     log.info("Opening opencode web view at %s", url)
     webbrowser.open(url)
 
