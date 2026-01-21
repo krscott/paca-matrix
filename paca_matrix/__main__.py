@@ -228,6 +228,30 @@ async def matrix_login() -> None:
         await client.close()
 
 
+async def _get_available_models() -> list[str]:
+    """Get the set of available models from OpenCode."""
+    models: list[str] = []
+
+    process = await asyncio.create_subprocess_exec(
+        "opencode",
+        "models",
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, stderr = await process.communicate()
+    if stderr:
+        log.debug("opencode models stderr: %s", stderr.decode())
+    if stdout:
+        output = stdout.decode().strip()
+        for line in output.splitlines():
+            line = line.strip()
+            if line and not line.startswith("Available models"):
+                models.append(line)
+
+    assert models, "No models supported"
+    return models
+
+
 async def run_bot(opts: "CliOpts") -> None:
     if (
         not opts.homeserver
@@ -243,23 +267,23 @@ async def run_bot(opts: "CliOpts") -> None:
 
     global _bot_instance, _opencode_process
 
-    if not opts.model:
+    available_models = await _get_available_models()
+    if opts.model:
+        if opts.model not in available_models:
+            log.error(
+                "Model '%s' is not available in OpenCode. Available models:%s",
+                opts.model,
+                "".join(f"\n  - {m}" for m in available_models),
+            )
+            # TODO: All returns due to errors should lead to exit codes
+            return
+    else:
         log.warning("Warning: --model or PACAMATRIX_MODEL is not set.")
         log.info("It is recommended to set this in your .env file.")
-        try:
-            process = await asyncio.create_subprocess_exec(
-                "opencode",
-                "models",
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            stdout, stderr = await process.communicate()
-            if stdout:
-                log.info("Available models:\n%s", stdout.decode().strip())
-            if stderr:
-                log.debug("opencode models stderr: %s", stderr.decode())
-        except Exception as e:
-            log.warning("Failed to list models: %s", e)
+        log.info(
+            "Available models:%s",
+            "".join(f"\n  - {m}" for m in available_models),
+        )
 
     opencode_server_url = opts.opencode_server_url
 
