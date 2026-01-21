@@ -79,13 +79,13 @@ class MatrixClient:
     async def indicate_typing(self, room: MatrixRoom, typing: bool = True) -> None:
         """Set or clear typing notification for a room."""
 
-        timeout_s = 5.0 if typing else 0.0
+        timeout_s = 10.0 if typing else 0.0
 
         now_s = time.time()
 
-        if self._last_sent_typing_s + timeout_s < now_s:
-            self._last_sent_typing_s = now_s
-            log.info("Thinking...")
+        if self._last_sent_typing_s + timeout_s / 2.0 < now_s:
+            self._last_sent_typing_s = now_s if typing else 0
+            log.debug("Typing...")
             await self.client.room_typing(
                 room_id=room.room_id,
                 typing_state=typing,
