@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import base64
 import getpass
 import logging
 import os
@@ -148,7 +149,11 @@ def run_opencode_web(port: int, session_id: str | None) -> None:
             pass
 
     if session_id:
-        url = f"{url}/?session={session_id}"
+        project_path = Path.cwd().resolve()
+        project_id = (
+            base64.urlsafe_b64encode(str(project_path).encode()).decode().rstrip("=")
+        )
+        url = f"{url}/{project_id}/session/{session_id}"
 
     log.info("Opening opencode web view at %s", url)
     webbrowser.open(url)
