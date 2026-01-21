@@ -29,7 +29,7 @@ _bot_instance: PacaBot | None = None
 _opencode_process: asyncio.subprocess.Process | None = None
 
 
-def _signal_handler(signum: int, frame: Any) -> None:
+def _signal_handler(signum: int, _: Any) -> None:
     log.info("Received signal %s, shutting down...", signum)
     if _bot_instance:
         loop = asyncio.get_event_loop()
@@ -64,9 +64,9 @@ def main() -> None:
         asyncio.run(matrix_login())
     elif opts.opencode_client:
         setproctitle("pacacode")
-        run_opencode_attach(opts)
+        run_opencode_attach(opts.opencode_port, opts.session_name)
     elif opts.opencode_web:
-        run_opencode_web(opts)
+        run_opencode_web(opts.opencode_port, opts.session_name)
     else:
         try:
             asyncio.run(run_bot(opts))
@@ -118,33 +118,29 @@ async def stop_opencode_server(process: asyncio.subprocess.Process) -> None:
         await process.wait()
 
 
-def run_opencode_attach(opts: "CliOpts") -> None:
+def run_opencode_attach(port: int, session_id: str | None) -> None:
     """Run opencode attach command to connect to the opencode server."""
-    port = opts.opencode_port or 0
     url = f"http://127.0.0.1:{port}"
     log.info("Attaching to opencode server at %s", url)
-    
+
     cmd = ["opencode", "attach", url]
-    
-    session_id = opts.session_name
+
     if not session_id and Path(".paca_session").exists():
         try:
             session_id = Path(".paca_session").read_text().strip()
         except Exception:
             pass
-            
+
     if session_id:
         cmd.extend(["-s", session_id])
-        
+
     subprocess.run(cmd)
 
 
-def run_opencode_web(opts: "CliOpts") -> None:
+def run_opencode_web(port: int, session_id: str | None) -> None:
     """Open the web view for the opencode server."""
-    port = opts.opencode_port or 0
     url = f"http://127.0.0.1:{port}"
-    
-    session_id = opts.session_name
+
     if not session_id and Path(".paca_session").exists():
         try:
             session_id = Path(".paca_session").read_text().strip()

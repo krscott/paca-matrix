@@ -17,5 +17,7 @@ result
 .vscode/
 # Symlinked to AGENTS.md
 CLAUDE.md
-# Matrix nio store
+
+# Application
 .nio_store/
+.paca*
