@@ -331,7 +331,7 @@ class OpencodeClient:
         if not self.http_session or not self.server_url:
             raise RuntimeError("HTTP session not initialized")
 
-        url = f"{self.server_url}/sessions?limit={limit}"
+        url = f"{self.server_url}/session?limit={limit}"
         log.debug("Listing sessions from: %s", url)
 
         async with self.http_session.get(url) as resp:
