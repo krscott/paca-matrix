@@ -27,6 +27,7 @@ This is a Matrix bot that forwards messages to OpenCode for processing. The bot 
 - `tests/test_matrix.py` - MatrixClient tests
 - `tests/test_opencode.py` - OpencodeClient tests
 - `tests/test_env_action.py` - Tests for EnvAction argument parser
+- `tests/test_main.py` - Tests for CLI main entry point and web browser integration
 
 ### OpenCode Integration
 
