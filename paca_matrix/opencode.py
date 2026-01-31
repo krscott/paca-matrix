@@ -368,6 +368,24 @@ class OpencodeClient:
                     f"Failed to switch to session '{session_id}': {resp.status} {text}"
                 )
 
+    async def create_new_session(self) -> str:
+        """Create a new session and return the session ID."""
+        if not self.http_session or not self.server_url:
+            raise RuntimeError("HTTP session not initialized")
+
+        log.debug("Creating new session...")
+        async with self.http_session.post(
+            f"{self.server_url}/session", json={}
+        ) as resp:
+            if resp.status != 200:
+                text = await resp.text()
+                raise RuntimeError(f"Failed to create session: {resp.status} {text}")
+            session_data = await resp.json()
+            new_session_id: str = session_data["id"]
+            self.session_id = new_session_id
+            log.info("Created new session: %s", new_session_id)
+            return new_session_id
+
     async def stop(self) -> None:
         if self.http_session:
             await self.http_session.close()

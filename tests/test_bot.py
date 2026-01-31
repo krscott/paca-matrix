@@ -340,9 +340,7 @@ async def test_handle_question_response_single_select(
     mock_opencode_client.reply_question = AsyncMock()
 
     # Send valid response
-    result = await bot._handle_question_response(
-        "1"
-    )
+    result = await bot._handle_question_response("1")
 
     assert result is True
     mock_opencode_client.reply_question.assert_called_once_with(
@@ -372,9 +370,7 @@ async def test_handle_question_response_multiple_select(
     mock_opencode_client.reply_question = AsyncMock()
 
     # Send valid response
-    result = await bot._handle_question_response(
-        "1,3"
-    )
+    result = await bot._handle_question_response("1,3")
 
     assert result is True
     mock_opencode_client.reply_question.assert_called_once_with(
@@ -403,9 +399,7 @@ async def test_handle_question_response_invalid_index(
     mock_opencode_client.reply_question = AsyncMock()
 
     # Send invalid response (out of range)
-    result = await bot._handle_question_response(
-        "5"
-    )
+    result = await bot._handle_question_response("5")
 
     assert result is True
     mock_opencode_client.reply_question.assert_not_called()
@@ -434,9 +428,7 @@ async def test_handle_question_response_non_numeric(
     mock_opencode_client.reply_question = AsyncMock()
 
     # Send non-numeric response
-    result = await bot._handle_question_response(
-        "I don't know"
-    )
+    result = await bot._handle_question_response("I don't know")
 
     assert result is False  # Not handled as question response
     mock_opencode_client.reply_question.assert_not_called()
@@ -451,11 +443,7 @@ async def test_handle_bang_command_echo_with_message(
     room = MagicMock()
     bot.current_room = room
 
-    result, message_to_send = (
-        await bot._handle_bang_command(
-            "!echo hello world"
-        )
-    )
+    result, message_to_send = await bot._handle_bang_command("!echo hello world")
 
     assert result is True
     assert message_to_send == ""
@@ -471,9 +459,7 @@ async def test_handle_bang_command_echo_no_message(
     room = MagicMock()
     bot.current_room = room
 
-    result, message_to_send = await bot._handle_bang_command(
-        "!echo"
-    )
+    result, message_to_send = await bot._handle_bang_command("!echo")
 
     assert result is True
     assert message_to_send == ""
@@ -490,9 +476,7 @@ async def test_handle_bang_command_stop(
     bot.current_room = room
     mock_opencode_client.abort_session = AsyncMock()
 
-    result, message_to_send = await bot._handle_bang_command(
-        "!stop"
-    )
+    result, message_to_send = await bot._handle_bang_command("!stop")
 
     assert result is True
     assert message_to_send == ""
@@ -512,9 +496,7 @@ async def test_handle_bang_command_stop_error(
         side_effect=RuntimeError("Session error")
     )
 
-    result, message_to_send = await bot._handle_bang_command(
-        "!stop"
-    )
+    result, message_to_send = await bot._handle_bang_command("!stop")
 
     assert result is True
     assert message_to_send == ""
@@ -531,11 +513,7 @@ async def test_handle_bang_command_unknown(
     room = MagicMock()
     bot.current_room = room
 
-    result, message_to_send = (
-        await bot._handle_bang_command(
-            "!unknown command"
-        )
-    )
+    result, message_to_send = await bot._handle_bang_command("!unknown command")
 
     assert result is True
     assert message_to_send == ""
@@ -550,9 +528,7 @@ async def test_handle_bang_command_double_bang(
     """Test that !! sends message to OpenCode (escape)."""
     bot = make_paca_bot()
 
-    handled, message_to_send = await bot._handle_bang_command(
-        "!!help"
-    )
+    handled, message_to_send = await bot._handle_bang_command("!!help")
 
     assert handled is False  # Not handled, falls through to OpenCode
     assert message_to_send == "!help"  # One bang stripped

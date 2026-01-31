@@ -1,11 +1,11 @@
 import asyncio
 import logging
+import subprocess
 import time
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Any
 from pathlib import Path
-import subprocess
+from typing import Any
 
 from nio import Event, MatrixRoom, RoomMessageText
 
@@ -325,12 +325,27 @@ class PacaBot:
                             lines.append(f"{prefix}{i}. {title} {session_id}")
                         lines.append("")
                         lines.append(
-                            "Use !session <0-9> to switch to a session. * = current"
+                            "Use !session <0-9> to switch to a session, or !session new to create one. * = current"
                         )
                         await self.send_to_matrix("\n".join(lines))
                 except Exception as e:
                     log.exception("Error listing sessions: %s", e)
                     await self.send_to_matrix(f"Error listing sessions: {e}")
+            elif args[0].lower() == "new":
+                # Create and switch to a new session
+                try:
+                    new_session_id = await self.opencode_client.create_new_session()
+                    await self.send_to_matrix(
+                        f"Created and switched to new session: {new_session_id}"
+                    )
+                    # Save session ID to .paca_session for CLI tools
+                    try:
+                        Path(".paca_session").write_text(new_session_id)
+                    except Exception as e:
+                        log.warning("Failed to save session ID to .paca_session: %s", e)
+                except Exception as e:
+                    log.exception("Error creating new session: %s", e)
+                    await self.send_to_matrix(f"Error creating new session: {e}")
             else:
                 # Switch to session by index
                 try:
@@ -360,7 +375,7 @@ class PacaBot:
                                 )
                 except ValueError:
                     await self.send_to_matrix(
-                        "Usage: !session <0-9> (select session by index)"
+                        "Usage: !session <0-9> (select session by index), or !session new"
                     )
                 except Exception as e:
                     log.exception("Error switching session: %s", e)
