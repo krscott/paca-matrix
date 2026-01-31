@@ -330,6 +330,7 @@ class CliOpts:
     model: str | None
     opencode_client: bool
     opencode_web: bool
+    resume: bool
 
     @staticmethod
     def parse_args() -> "CliOpts":
@@ -399,6 +400,11 @@ class CliOpts:
             help="Session ID to connect to (env: PACAMATRIX_SESSION). If not set, creates a new session",
         )
         parser.add_argument(
+            "--resume",
+            action="store_true",
+            help="Resume the previous session from .paca_session file",
+        )
+        parser.add_argument(
             "--model",
             required=False,
             action=EnvAction,
@@ -427,6 +433,14 @@ class CliOpts:
                 "--homeserver, --user-id, --device-id, and --access-token are required when not using --login"
             )
 
+        # Handle --resume flag: read session from .paca_session if it exists
+        session_name = args.session
+        if args.resume and not session_name and Path(".paca_session").exists():
+            try:
+                session_name = Path(".paca_session").read_text().strip()
+            except Exception:
+                pass
+
         return CliOpts(
             verbose=args.verbose is not None,
             login=args.login,
@@ -436,10 +450,11 @@ class CliOpts:
             access_token=args.access_token,
             opencode_server_url=args.opencode_server_url,
             opencode_port=args.opencode_port,
-            session_name=args.session,
+            session_name=session_name,
             model=args.model,
             opencode_client=args.opencode_client,
             opencode_web=args.opencode_web,
+            resume=args.resume,
         )
 
 
