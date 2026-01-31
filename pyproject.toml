@@ -38,6 +38,11 @@ typeCheckingMode = "strict"
 reportMissingTypeStubs = "none"
 exclude = [".direnv", "result", ".venv"]
 
+# Disable private usage warnings for tests since they need to test internal methods
+executionEnvironments = [
+  { root = "tests", reportPrivateUsage = false }
+]
+
 [tool.mypy]
 strict = true
 exclude = [".direnv", "result", ".venv"]

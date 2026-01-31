@@ -1,6 +1,6 @@
 import time
 from collections.abc import Iterator
-from typing import Any
+from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -204,7 +204,7 @@ async def test_handle_opencode_event_message_updated_sends_to_matrix(
         return_value=["Hello, ", "world!"]
     )
 
-    await bot._handle_opencode_event(data)  # pyright: ignore[reportPrivateUsage]
+    await bot._handle_opencode_event(data)
 
     mock_matrix_client.send_message.assert_called_once_with(room, "Hello, world!")
     mock_opencode_client.get_message_parts.assert_called_once_with("msg_test123")
@@ -224,7 +224,7 @@ async def test_handle_opencode_event_no_room_skips_send(
         },
     }
 
-    await bot._handle_opencode_event(data)  # pyright: ignore[reportPrivateUsage]
+    await bot._handle_opencode_event(data)
 
     mock_matrix_client.send_message.assert_not_called()
     mock_opencode_client.get_message_parts.assert_called_once_with("msg_test123")
@@ -250,11 +250,11 @@ async def test_handle_opencode_event_duplicate_message_skips(
     mock_opencode_client.get_message_parts = mock_async(return_value=["Hello!"])
 
     # First call should send
-    await bot._handle_opencode_event(data)  # pyright: ignore[reportPrivateUsage]
+    await bot._handle_opencode_event(data)
     mock_matrix_client.send_message.assert_called_once()
 
     # Second call with same message ID should be skipped
-    await bot._handle_opencode_event(data)  # pyright: ignore[reportPrivateUsage]
+    await bot._handle_opencode_event(data)
     # Still only called once
     mock_matrix_client.send_message.assert_called_once()
 
@@ -301,7 +301,7 @@ async def test_handle_question_event(
         },
     }
 
-    await bot._handle_opencode_event(data)  # pyright: ignore[reportPrivateUsage]
+    await bot._handle_opencode_event(data)
 
     # Check that question was stored
     assert bot._pending_question is not None
@@ -340,7 +340,7 @@ async def test_handle_question_response_single_select(
     mock_opencode_client.reply_question = AsyncMock()
 
     # Send valid response
-    result = await bot._handle_question_response(  # pyright: ignore[reportPrivateUsage]
+    result = await bot._handle_question_response(
         "1"
     )
 
@@ -372,7 +372,7 @@ async def test_handle_question_response_multiple_select(
     mock_opencode_client.reply_question = AsyncMock()
 
     # Send valid response
-    result = await bot._handle_question_response(  # pyright: ignore[reportPrivateUsage]
+    result = await bot._handle_question_response(
         "1,3"
     )
 
@@ -403,7 +403,7 @@ async def test_handle_question_response_invalid_index(
     mock_opencode_client.reply_question = AsyncMock()
 
     # Send invalid response (out of range)
-    result = await bot._handle_question_response(  # pyright: ignore[reportPrivateUsage]
+    result = await bot._handle_question_response(
         "5"
     )
 
@@ -434,7 +434,7 @@ async def test_handle_question_response_non_numeric(
     mock_opencode_client.reply_question = AsyncMock()
 
     # Send non-numeric response
-    result = await bot._handle_question_response(  # pyright: ignore[reportPrivateUsage]
+    result = await bot._handle_question_response(
         "I don't know"
     )
 
@@ -452,7 +452,7 @@ async def test_handle_bang_command_echo_with_message(
     bot.current_room = room
 
     result, message_to_send = (
-        await bot._handle_bang_command(  # pyright: ignore[reportPrivateUsage]
+        await bot._handle_bang_command(
             "!echo hello world"
         )
     )
@@ -473,7 +473,7 @@ async def test_handle_bang_command_echo_no_message(
 
     result, message_to_send = await bot._handle_bang_command(
         "!echo"
-    )  # pyright: ignore[reportPrivateUsage]
+    )
 
     assert result is True
     assert message_to_send == ""
@@ -492,7 +492,7 @@ async def test_handle_bang_command_stop(
 
     result, message_to_send = await bot._handle_bang_command(
         "!stop"
-    )  # pyright: ignore[reportPrivateUsage]
+    )
 
     assert result is True
     assert message_to_send == ""
@@ -514,7 +514,7 @@ async def test_handle_bang_command_stop_error(
 
     result, message_to_send = await bot._handle_bang_command(
         "!stop"
-    )  # pyright: ignore[reportPrivateUsage]
+    )
 
     assert result is True
     assert message_to_send == ""
@@ -532,7 +532,7 @@ async def test_handle_bang_command_unknown(
     bot.current_room = room
 
     result, message_to_send = (
-        await bot._handle_bang_command(  # pyright: ignore[reportPrivateUsage]
+        await bot._handle_bang_command(
             "!unknown command"
         )
     )
@@ -552,7 +552,7 @@ async def test_handle_bang_command_double_bang(
 
     handled, message_to_send = await bot._handle_bang_command(
         "!!help"
-    )  # pyright: ignore[reportPrivateUsage]
+    )
 
     assert handled is False  # Not handled, falls through to OpenCode
     assert message_to_send == "!help"  # One bang stripped
@@ -762,7 +762,7 @@ async def test_message_callback_rejects_oversized_message(
     # Should send error message to user
     bot.matrix_bot.send_message.assert_called_once()  # type: ignore[attr-defined]
     call_args = bot.matrix_bot.send_message.call_args[0]  # type: ignore[attr-defined]
-    assert "too long" in str(call_args[1]).lower()
+    assert "too long" in cast(str, call_args[1]).lower()
 
     # Should NOT forward to OpenCode
     bot.opencode_client.prompt_async.assert_not_called()  # type: ignore[attr-defined]
@@ -793,7 +793,7 @@ async def test_question_response_too_many_selections(
     # Should send error message
     bot.matrix_bot.send_message.assert_called_once()  # type: ignore[attr-defined]
     call_args = bot.matrix_bot.send_message.call_args[0]  # type: ignore[attr-defined]
-    assert "too many" in call_args[1].lower()
+    assert "too many" in cast(str, call_args[1]).lower()
 
 
 async def test_question_event_too_many_options(
@@ -828,7 +828,7 @@ async def test_question_event_too_many_options(
     # Should send error message
     bot.matrix_bot.send_message.assert_called_once()  # type: ignore[attr-defined]
     call_args = bot.matrix_bot.send_message.call_args[0]  # type: ignore[attr-defined]
-    assert "too many options" in call_args[1].lower()
+    assert "too many options" in cast(str, call_args[1]).lower()
 
     # Should NOT set pending question
     assert bot._pending_question is None
