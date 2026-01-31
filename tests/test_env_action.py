@@ -1,12 +1,13 @@
 import argparse
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
 from paca_matrix.__main__ import EnvAction
 
 
-def test_env_action_basic():
+def test_env_action_basic() -> None:
     """Test that EnvAction handles environment variables correctly."""
     # Set environment variable
     os.environ["TEST_ENV_VAR"] = "env_value"
@@ -33,7 +34,7 @@ def test_env_action_basic():
     del os.environ["TEST_ENV_VAR"]
 
 
-def test_env_action_dotenv(tmp_path):
+def test_env_action_dotenv(tmp_path: Path) -> None:
     """Test that EnvAction works with dotenv loaded variables."""
 
     # Create a temporary .env file
@@ -66,7 +67,7 @@ def test_env_action_dotenv(tmp_path):
         del os.environ["DOTENV_TEST_VAR"]
 
 
-def test_env_action_boolean_flag():
+def test_env_action_boolean_flag() -> None:
     """Test that EnvAction works with boolean flags."""
     # Setup a test ArgumentParser
     parser = argparse.ArgumentParser()
@@ -96,7 +97,7 @@ def test_env_action_boolean_flag():
     del os.environ["VERBOSE"]
 
 
-def test_env_action_default():
+def test_env_action_default() -> None:
     """Test that EnvAction respects default values."""
     # Setup a test ArgumentParser
     parser = argparse.ArgumentParser()

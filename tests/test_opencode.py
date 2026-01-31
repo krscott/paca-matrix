@@ -3,7 +3,7 @@ import pytest
 from paca_matrix.opencode import OpencodeClient
 
 
-def test_acp_client_initialization():
+def test_acp_client_initialization() -> None:
     """Test basic initialization sets attributes correctly."""
     client = OpencodeClient("http://localhost:8080", "test-session")
     assert client.server_url == "http://localhost:8080"
@@ -12,7 +12,7 @@ def test_acp_client_initialization():
     assert client.http_session is None
 
 
-def test_acp_client_initialization_without_session_name():
+def test_acp_client_initialization_without_session_name() -> None:
     """Test initialization without session name."""
     client = OpencodeClient("http://localhost:8080")
     assert client.server_url == "http://localhost:8080"
@@ -21,7 +21,7 @@ def test_acp_client_initialization_without_session_name():
     assert client.http_session is None
 
 
-async def test_acp_client_prompt_async_no_session():
+async def test_acp_client_prompt_async_no_session() -> None:
     """Test that prompt_async raises error when session not initialized."""
     client = OpencodeClient("http://localhost:8080")
     # Don't set session_id or http_session
@@ -30,7 +30,7 @@ async def test_acp_client_prompt_async_no_session():
         await client.prompt_async("test message")
 
 
-async def test_acp_client_subscribe_events_no_session():
+async def test_acp_client_subscribe_events_no_session() -> None:
     """Test that subscribe_events raises error when session not initialized."""
     client = OpencodeClient("http://localhost:8080")
     # Don't set http_session
@@ -40,7 +40,7 @@ async def test_acp_client_subscribe_events_no_session():
             pass
 
 
-async def test_acp_client_stop_no_session():
+async def test_acp_client_stop_no_session() -> None:
     """Test that stop() doesn't crash when no session exists."""
     client = OpencodeClient("http://localhost:8080")
     # Should not raise error
@@ -48,7 +48,7 @@ async def test_acp_client_stop_no_session():
     assert client.http_session is None
 
 
-async def test_acp_client_abort_session_no_session():
+async def test_acp_client_abort_session_no_session() -> None:
     """Test that abort_session raises error when session not initialized."""
     client = OpencodeClient("http://localhost:8080")
     # Don't set session_id or http_session
@@ -57,7 +57,7 @@ async def test_acp_client_abort_session_no_session():
         await client.abort_session()
 
 
-def test_session_name_validation_invalid_characters():
+def test_session_name_validation_invalid_characters() -> None:
     """Test that session names with invalid characters are rejected."""
     with pytest.raises(ValueError, match="Invalid session name format"):
         OpencodeClient("http://localhost:8080", "session/with/slashes")
@@ -69,7 +69,7 @@ def test_session_name_validation_invalid_characters():
         OpencodeClient("http://localhost:8080", "session$pecial")
 
 
-def test_session_name_validation_too_long():
+def test_session_name_validation_too_long() -> None:
     """Test that session names exceeding max length are rejected."""
     from paca_matrix.opencode import MAX_SESSION_NAME_LENGTH
 
@@ -78,7 +78,7 @@ def test_session_name_validation_too_long():
         OpencodeClient("http://localhost:8080", long_name)
 
 
-def test_session_name_validation_valid():
+def test_session_name_validation_valid() -> None:
     """Test that valid session names are accepted."""
     # These should all work
     client = OpencodeClient("http://localhost:8080", "valid-session_123")
@@ -91,9 +91,9 @@ def test_session_name_validation_valid():
     assert client.session_name == "under_score"
 
 
-async def test_prompt_async_message_too_long():
+async def test_prompt_async_message_too_long() -> None:
     """Test that oversized messages are rejected."""
-    from unittest.mock import AsyncMock, MagicMock
+    from unittest.mock import MagicMock
 
     from paca_matrix.opencode import MAX_MESSAGE_LENGTH
 
@@ -106,7 +106,7 @@ async def test_prompt_async_message_too_long():
         await client.prompt_async(oversized)
 
 
-async def test_get_message_parts_invalid_message_id():
+async def test_get_message_parts_invalid_message_id() -> None:
     """Test that invalid message IDs are rejected."""
     from unittest.mock import MagicMock
 
@@ -130,7 +130,7 @@ async def test_get_message_parts_invalid_message_id():
         await client.get_message_parts(long_id)
 
 
-async def test_reply_question_invalid_request_id():
+async def test_reply_question_invalid_request_id() -> None:
     """Test that invalid request IDs are rejected."""
     from unittest.mock import MagicMock
 

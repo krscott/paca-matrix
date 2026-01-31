@@ -1,4 +1,5 @@
 import time
+from collections.abc import Iterator
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -8,7 +9,7 @@ from paca_matrix.bot import PacaBot, PendingQuestion, QuestionOption
 
 
 @pytest.fixture
-def mock_matrix_client():
+def mock_matrix_client() -> Iterator[MagicMock]:
     """Mock MatrixClient to avoid Matrix network calls."""
     with patch("paca_matrix.bot.MatrixClient", autospec=True) as mock:
         matrix_bot_instance = MagicMock()
@@ -24,7 +25,7 @@ def mock_matrix_client():
 
 
 @pytest.fixture
-def mock_opencode_client():
+def mock_opencode_client() -> Iterator[MagicMock]:
     """Mock OpencodeClient to avoid OpenCode network calls."""
     with patch("paca_matrix.bot.OpencodeClient", autospec=True) as mock:
         opencode_instance = MagicMock()
@@ -46,7 +47,7 @@ def make_paca_bot() -> PacaBot:
         opencode_server_url="http://localhost:8080",
     )
     # Set start time to past so test events with future timestamps work
-    bot._start_time_ms = int(time.time() * 1000) - 10000  # type: ignore[reportPrivateUsage]
+    bot._start_time_ms = int(time.time() * 1000) - 10000
     return bot
 
 
@@ -303,12 +304,12 @@ async def test_handle_question_event(
     await bot._handle_opencode_event(data)  # pyright: ignore[reportPrivateUsage]
 
     # Check that question was stored
-    assert bot._pending_question is not None  # type: ignore[reportPrivateUsage]
-    assert bot._pending_question.request_id == "que_question1"  # type: ignore[reportPrivateUsage]
-    assert bot._pending_question.question == "Which framework do you prefer?"  # type: ignore[reportPrivateUsage]
-    assert len(bot._pending_question.options) == 3  # type: ignore[reportPrivateUsage]
-    assert bot._pending_question.options[0].label == "React"  # type: ignore[reportPrivateUsage]
-    assert bot._pending_question.multiple is False  # type: ignore[reportPrivateUsage]
+    assert bot._pending_question is not None
+    assert bot._pending_question.request_id == "que_question1"
+    assert bot._pending_question.question == "Which framework do you prefer?"
+    assert len(bot._pending_question.options) == 3
+    assert bot._pending_question.options[0].label == "React"
+    assert bot._pending_question.multiple is False
 
     # Check that question was sent to Matrix
     call_args = mock_matrix_client.send_message.call_args
@@ -327,7 +328,7 @@ async def test_handle_question_response_single_select(
     bot = make_paca_bot()
     room = MagicMock()
     bot.current_room = room
-    bot._pending_question = PendingQuestion(  # type: ignore[reportPrivateUsage]
+    bot._pending_question = PendingQuestion(
         request_id="que_q1",
         question="Test question?",
         options=[
@@ -348,7 +349,7 @@ async def test_handle_question_response_single_select(
         request_id="que_q1",
         answers=[["Option A"]],
     )
-    assert bot._pending_question is None  # type: ignore[reportPrivateUsage]
+    assert bot._pending_question is None
 
 
 async def test_handle_question_response_multiple_select(
@@ -358,7 +359,7 @@ async def test_handle_question_response_multiple_select(
     bot = make_paca_bot()
     room = MagicMock()
     bot.current_room = room
-    bot._pending_question = PendingQuestion(  # type: ignore[reportPrivateUsage]
+    bot._pending_question = PendingQuestion(
         request_id="que_q2",
         question="Select all that apply?",
         options=[
@@ -380,7 +381,7 @@ async def test_handle_question_response_multiple_select(
         request_id="que_q2",
         answers=[["A", "C"]],
     )
-    assert bot._pending_question is None  # type: ignore[reportPrivateUsage]
+    assert bot._pending_question is None
 
 
 async def test_handle_question_response_invalid_index(
@@ -390,7 +391,7 @@ async def test_handle_question_response_invalid_index(
     bot = make_paca_bot()
     room = MagicMock()
     bot.current_room = room
-    bot._pending_question = PendingQuestion(  # type: ignore[reportPrivateUsage]
+    bot._pending_question = PendingQuestion(
         request_id="que_q3",
         question="Test question?",
         options=[
@@ -408,7 +409,7 @@ async def test_handle_question_response_invalid_index(
 
     assert result is True
     mock_opencode_client.reply_question.assert_not_called()
-    assert bot._pending_question is not None  # type: ignore[reportPrivateUsage]  # Question remains pending
+    assert bot._pending_question is not None  # Question remains pending
 
     # Check error message sent to Matrix
     call_args = mock_matrix_client.send_message.call_args
@@ -422,7 +423,7 @@ async def test_handle_question_response_non_numeric(
     bot = make_paca_bot()
     room = MagicMock()
     bot.current_room = room
-    bot._pending_question = PendingQuestion(  # type: ignore[reportPrivateUsage]
+    bot._pending_question = PendingQuestion(
         request_id="que_q4",
         question="Test question?",
         options=[
@@ -439,7 +440,7 @@ async def test_handle_question_response_non_numeric(
 
     assert result is False  # Not handled as question response
     mock_opencode_client.reply_question.assert_not_called()
-    assert bot._pending_question is not None  # type: ignore[reportPrivateUsage]  # Question remains pending
+    assert bot._pending_question is not None  # Question remains pending
 
 
 async def test_handle_bang_command_echo_with_message(
@@ -458,7 +459,7 @@ async def test_handle_bang_command_echo_with_message(
 
     assert result is True
     assert message_to_send == ""
-    call_args = bot.matrix_bot.send_message.call_args  # type: ignore[reportPrivateUsage]
+    call_args = bot.matrix_bot.send_message.call_args  # type: ignore[attr-defined]
     assert call_args[0][1] == "Echo: hello world"
 
 
@@ -476,7 +477,7 @@ async def test_handle_bang_command_echo_no_message(
 
     assert result is True
     assert message_to_send == ""
-    call_args = bot.matrix_bot.send_message.call_args  # type: ignore[reportPrivateUsage]
+    call_args = bot.matrix_bot.send_message.call_args  # type: ignore[attr-defined]
     assert call_args[0][1] == "Usage: !echo <message>"
 
 
@@ -496,7 +497,7 @@ async def test_handle_bang_command_stop(
     assert result is True
     assert message_to_send == ""
     mock_opencode_client.abort_session.assert_called_once()
-    call_args = bot.matrix_bot.send_message.call_args  # type: ignore[reportPrivateUsage]
+    call_args = bot.matrix_bot.send_message.call_args  # type: ignore[attr-defined]
     assert call_args[0][1] == "Agent stopped."
 
 
@@ -518,7 +519,7 @@ async def test_handle_bang_command_stop_error(
     assert result is True
     assert message_to_send == ""
     mock_opencode_client.abort_session.assert_called_once()
-    call_args = bot.matrix_bot.send_message.call_args  # type: ignore[reportPrivateUsage]
+    call_args = bot.matrix_bot.send_message.call_args  # type: ignore[attr-defined]
     assert "Error stopping agent" in call_args[0][1]
 
 
@@ -538,7 +539,7 @@ async def test_handle_bang_command_unknown(
 
     assert result is True
     assert message_to_send == ""
-    call_args = bot.matrix_bot.send_message.call_args  # type: ignore[reportPrivateUsage]
+    call_args = bot.matrix_bot.send_message.call_args  # type: ignore[attr-defined]
     assert "Unrecognized command '!unknown'" in call_args[0][1]
     assert "send an extra bang '!! ...'" in call_args[0][1]
 
@@ -555,7 +556,7 @@ async def test_handle_bang_command_double_bang(
 
     assert handled is False  # Not handled, falls through to OpenCode
     assert message_to_send == "!help"  # One bang stripped
-    bot.matrix_bot.send_message.assert_not_called()  # type: ignore[reportPrivateUsage]
+    bot.matrix_bot.send_message.assert_not_called()  # type: ignore[attr-defined]
 
 
 async def test_message_callback_bang_command(
@@ -563,7 +564,7 @@ async def test_message_callback_bang_command(
 ) -> None:
     """Test that bang commands are handled and not forwarded to OpenCode."""
     bot = make_paca_bot()
-    bot._start_time_ms = 0  # type: ignore[reportPrivateUsage]
+    bot._start_time_ms = 0
 
     room = MagicMock()
     room.room_id = "!room:example.com"
@@ -579,7 +580,7 @@ async def test_message_callback_bang_command(
     await bot.message_callback(room, event)
 
     # Should send to Matrix
-    call_args = bot.matrix_bot.send_message.call_args  # type: ignore[reportPrivateUsage]
+    call_args = bot.matrix_bot.send_message.call_args  # type: ignore[attr-defined]
     assert call_args[0][1] == "Echo: test"
 
     # Should NOT send to OpenCode
@@ -591,7 +592,7 @@ async def test_message_callback_normal_message_forwarded(
 ) -> None:
     """Test that non-slash messages are forwarded to OpenCode."""
     bot = make_paca_bot()
-    bot._start_time_ms = 0  # type: ignore[reportPrivateUsage]
+    bot._start_time_ms = 0
 
     room = MagicMock()
     room.room_id = "!room:example.com"
@@ -607,10 +608,10 @@ async def test_message_callback_normal_message_forwarded(
     await bot.message_callback(room, event)
 
     # Should NOT send to Matrix directly
-    bot.matrix_bot.send_message.assert_not_called()  # type: ignore[reportPrivateUsage]
+    bot.matrix_bot.send_message.assert_not_called()  # type: ignore[attr-defined]
 
     # Should send to OpenCode
-    bot.opencode_client.prompt_async.assert_called_once_with("hello")  # type: ignore[reportPrivateUsage]
+    bot.opencode_client.prompt_async.assert_called_once_with("hello")  # type: ignore[attr-defined]
 
 
 async def test_message_callback_double_bang_forwarded(
@@ -618,7 +619,7 @@ async def test_message_callback_double_bang_forwarded(
 ) -> None:
     """Test that !! messages are forwarded to OpenCode with single bang."""
     bot = make_paca_bot()
-    bot._start_time_ms = 0  # type: ignore[reportPrivateUsage]
+    bot._start_time_ms = 0
 
     room = MagicMock()
     room.room_id = "!room:example.com"
@@ -634,10 +635,10 @@ async def test_message_callback_double_bang_forwarded(
     await bot.message_callback(room, event)
 
     # Should NOT send to Matrix directly
-    bot.matrix_bot.send_message.assert_not_called()  # type: ignore[reportPrivateUsage]
+    bot.matrix_bot.send_message.assert_not_called()  # type: ignore[attr-defined]
 
     # Should send to OpenCode with one bang stripped
-    bot.opencode_client.prompt_async.assert_called_once_with("!help me")  # type: ignore[reportPrivateUsage]
+    bot.opencode_client.prompt_async.assert_called_once_with("!help me")  # type: ignore[attr-defined]
 
 
 async def test_message_callback_unknown_command_error(
@@ -645,7 +646,7 @@ async def test_message_callback_unknown_command_error(
 ) -> None:
     """Test that unknown bang commands send an error."""
     bot = make_paca_bot()
-    bot._start_time_ms = 0  # type: ignore[reportPrivateUsage]
+    bot._start_time_ms = 0
 
     room = MagicMock()
     room.room_id = "!room:example.com"
@@ -661,12 +662,12 @@ async def test_message_callback_unknown_command_error(
     await bot.message_callback(room, event)
 
     # Should send error to Matrix
-    call_args = bot.matrix_bot.send_message.call_args  # type: ignore[reportPrivateUsage]
+    call_args = bot.matrix_bot.send_message.call_args  # type: ignore[attr-defined]
     assert "Unrecognized command '!unknown'" in call_args[0][1]
     assert "send an extra bang '!! ...'" in call_args[0][1]
 
     # Should NOT send to OpenCode
-    bot.opencode_client.prompt_async.assert_not_called()  # type: ignore[reportPrivateUsage]
+    bot.opencode_client.prompt_async.assert_not_called()  # type: ignore[attr-defined]
 
 
 async def test_seen_event_ids_lru_eviction(
@@ -680,18 +681,18 @@ async def test_seen_event_ids_lru_eviction(
     # Add MAX_SEEN_EVENT_IDS + 100 event IDs
     num_to_add = MAX_SEEN_EVENT_IDS + 100
     for i in range(num_to_add):
-        bot._add_seen_event_id(f"event_{i}")  # type: ignore[reportPrivateUsage]
+        bot._add_seen_event_id(f"event_{i}")
 
     # Should only keep MAX_SEEN_EVENT_IDS entries
-    assert len(bot._seen_event_ids) == MAX_SEEN_EVENT_IDS  # type: ignore[reportPrivateUsage]
+    assert len(bot._seen_event_ids) == MAX_SEEN_EVENT_IDS
 
     # Oldest entries should be evicted (event_0 through event_99)
     for i in range(100):
-        assert f"event_{i}" not in bot._seen_event_ids  # type: ignore[reportPrivateUsage]
+        assert f"event_{i}" not in bot._seen_event_ids
 
     # Newest entries should be kept (event_100 onwards)
     for i in range(100, num_to_add):
-        assert f"event_{i}" in bot._seen_event_ids  # type: ignore[reportPrivateUsage]
+        assert f"event_{i}" in bot._seen_event_ids
 
 
 async def test_sent_message_ids_lru_eviction(
@@ -705,18 +706,18 @@ async def test_sent_message_ids_lru_eviction(
     # Add MAX_SENT_MESSAGE_IDS + 50 message IDs
     num_to_add = MAX_SENT_MESSAGE_IDS + 50
     for i in range(num_to_add):
-        bot._add_sent_message_id(f"msg_{i}")  # type: ignore[reportPrivateUsage]
+        bot._add_sent_message_id(f"msg_{i}")
 
     # Should only keep MAX_SENT_MESSAGE_IDS entries
-    assert len(bot._sent_message_ids) == MAX_SENT_MESSAGE_IDS  # type: ignore[reportPrivateUsage]
+    assert len(bot._sent_message_ids) == MAX_SENT_MESSAGE_IDS
 
     # Oldest entries should be evicted (msg_0 through msg_49)
     for i in range(50):
-        assert f"msg_{i}" not in bot._sent_message_ids  # type: ignore[reportPrivateUsage]
+        assert f"msg_{i}" not in bot._sent_message_ids
 
     # Newest entries should be kept (msg_50 onwards)
     for i in range(50, num_to_add):
-        assert f"msg_{i}" in bot._sent_message_ids  # type: ignore[reportPrivateUsage]
+        assert f"msg_{i}" in bot._sent_message_ids
 
 
 async def test_message_length_validation(
@@ -728,11 +729,11 @@ async def test_message_length_validation(
     bot = make_paca_bot()
 
     # Valid message should pass
-    assert bot._validate_message_length("Hello", "test")  # type: ignore[reportPrivateUsage]
+    assert bot._validate_message_length("Hello", "test")
 
     # Oversized message should fail
     oversized = "x" * (MAX_MESSAGE_LENGTH + 1)
-    assert not bot._validate_message_length(oversized, "test")  # type: ignore[reportPrivateUsage]
+    assert not bot._validate_message_length(oversized, "test")
 
 
 async def test_message_callback_rejects_oversized_message(
@@ -759,12 +760,12 @@ async def test_message_callback_rejects_oversized_message(
     await bot.message_callback(room, event)
 
     # Should send error message to user
-    bot.matrix_bot.send_message.assert_called_once()  # type: ignore[reportPrivateUsage]
-    call_args = bot.matrix_bot.send_message.call_args[0]  # type: ignore[reportPrivateUsage]
+    bot.matrix_bot.send_message.assert_called_once()  # type: ignore[attr-defined]
+    call_args = bot.matrix_bot.send_message.call_args[0]  # type: ignore[attr-defined]
     assert "too long" in str(call_args[1]).lower()
 
     # Should NOT forward to OpenCode
-    bot.opencode_client.prompt_async.assert_not_called()  # type: ignore[reportPrivateUsage]
+    bot.opencode_client.prompt_async.assert_not_called()  # type: ignore[attr-defined]
 
 
 async def test_question_response_too_many_selections(
@@ -778,20 +779,20 @@ async def test_question_response_too_many_selections(
 
     # Set up a pending question
     options = [QuestionOption(label=f"Option {i}", description="") for i in range(100)]
-    bot._pending_question = PendingQuestion(  # type: ignore[reportPrivateUsage]
+    bot._pending_question = PendingQuestion(
         request_id="req123", question="Test?", options=options, multiple=True
     )
 
     # Create response with too many selections
     too_many = ",".join(str(i) for i in range(1, MAX_QUESTION_RESPONSE_SELECTIONS + 2))
-    result = await bot._handle_question_response(too_many)  # type: ignore[reportPrivateUsage]
+    result = await bot._handle_question_response(too_many)
 
     # Should be handled (returns True)
     assert result is True
 
     # Should send error message
-    bot.matrix_bot.send_message.assert_called_once()  # type: ignore[reportPrivateUsage]
-    call_args = bot.matrix_bot.send_message.call_args[0]  # type: ignore[reportPrivateUsage]
+    bot.matrix_bot.send_message.assert_called_once()  # type: ignore[attr-defined]
+    call_args = bot.matrix_bot.send_message.call_args[0]  # type: ignore[attr-defined]
     assert "too many" in call_args[1].lower()
 
 
@@ -822,12 +823,12 @@ async def test_question_event_too_many_options(
         ],
     }
 
-    await bot._handle_question_event(properties)  # type: ignore[reportPrivateUsage]
+    await bot._handle_question_event(properties)
 
     # Should send error message
-    bot.matrix_bot.send_message.assert_called_once()  # type: ignore[reportPrivateUsage]
-    call_args = bot.matrix_bot.send_message.call_args[0]  # type: ignore[reportPrivateUsage]
+    bot.matrix_bot.send_message.assert_called_once()  # type: ignore[attr-defined]
+    call_args = bot.matrix_bot.send_message.call_args[0]  # type: ignore[attr-defined]
     assert "too many options" in call_args[1].lower()
 
     # Should NOT set pending question
-    assert bot._pending_question is None  # type: ignore[reportPrivateUsage]
+    assert bot._pending_question is None

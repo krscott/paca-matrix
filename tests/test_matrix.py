@@ -1,3 +1,4 @@
+from collections.abc import Iterator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -6,7 +7,7 @@ from paca_matrix.matrix import MatrixClient
 
 
 @pytest.fixture
-def mock_async_client():
+def mock_async_client() -> Iterator[MagicMock]:
     """Mock nio AsyncClient to avoid network calls."""
     with patch("paca_matrix.matrix.AsyncClient", autospec=True) as mock:
         client_instance = MagicMock()
@@ -17,7 +18,7 @@ def mock_async_client():
         yield client_instance
 
 
-def test_matrix_bot_initialization(mock_async_client):
+def test_matrix_bot_initialization(mock_async_client: MagicMock) -> None:
     """Test basic initialization."""
     bot = MatrixClient(
         homeserver="https://example.com",
@@ -30,7 +31,7 @@ def test_matrix_bot_initialization(mock_async_client):
     assert bot.client.access_token == "test_token"
 
 
-async def test_send_message(mock_async_client):
+async def test_send_message(mock_async_client: MagicMock) -> None:
     """Test sending a message calls the Matrix client."""
     bot = MatrixClient(
         homeserver="https://example.com",
@@ -51,7 +52,7 @@ async def test_send_message(mock_async_client):
     )
 
 
-async def test_send_empty_message(mock_async_client):
+async def test_send_empty_message(mock_async_client: MagicMock) -> None:
     """Test that empty messages are not sent."""
     bot = MatrixClient(
         homeserver="https://example.com",
@@ -69,7 +70,7 @@ async def test_send_empty_message(mock_async_client):
     mock_async_client.room_send.assert_not_called()
 
 
-async def test_stop(mock_async_client):
+async def test_stop(mock_async_client: MagicMock) -> None:
     """Test that stop() closes the client."""
     bot = MatrixClient(
         homeserver="https://example.com",
