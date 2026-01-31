@@ -33,10 +33,11 @@ skip = [".direnv", "result", ".venv"]
 [tool.pyright]
 typeCheckingMode = "strict"
 reportMissingTypeStubs = "none"
-exclude = ["tests", "tests/**", ".direnv"]
+exclude = [".direnv", "result", ".venv"]
 
 [tool.mypy]
 strict = true
+exclude = [".direnv", "result", ".venv"]
 
 # Improved error messages
 pretty = true
