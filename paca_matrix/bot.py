@@ -271,7 +271,8 @@ class PacaBot:
 !stop - Stop the current agent session
 !kill - Kill agent and exit bot
 !uptime - Show system uptime
-!session - List/switch sessions (use !session new or !session <0-9>)
+!new - Create a new session
+!session - List/switch sessions (use !session <0-9>)
 !help - Show this help message
 
 To send a message starting with ! to the agent, use !! (e.g., !!echo)"""
@@ -314,6 +315,22 @@ To send a message starting with ! to the agent, use !! (e.g., !!echo)"""
                 uptime_str = result.stdout.strip()
             await self.send_to_matrix(f"Uptime: {uptime_str}")
 
+        elif command == "!new":
+            # Create and switch to a new session
+            try:
+                new_session_id = await self.opencode_client.create_new_session()
+                await self.send_to_matrix(
+                    f"Created and switched to new session: {new_session_id}"
+                )
+                # Save session ID to .paca_session for CLI tools
+                try:
+                    Path(".paca_session").write_text(new_session_id)
+                except Exception as e:
+                    log.warning("Failed to save session ID to .paca_session: %s", e)
+            except Exception as e:
+                log.exception("Error creating new session: %s", e)
+                await self.send_to_matrix(f"Error creating new session: {e}")
+
         elif command == "!session":
             if len(args) == 0:
                 # List recent sessions
@@ -334,27 +351,12 @@ To send a message starting with ! to the agent, use !! (e.g., !!echo)"""
                             lines.append(f"{prefix}{i}. {title} {session_id}")
                         lines.append("")
                         lines.append(
-                            "Use !session <0-9> to switch to a session, or !session new to create one. * = current"
+                            "Use !session <0-9> to switch to a session, or !new to create one. * = current"
                         )
                         await self.send_to_matrix("\n".join(lines))
                 except Exception as e:
                     log.exception("Error listing sessions: %s", e)
                     await self.send_to_matrix(f"Error listing sessions: {e}")
-            elif args[0].lower() == "new":
-                # Create and switch to a new session
-                try:
-                    new_session_id = await self.opencode_client.create_new_session()
-                    await self.send_to_matrix(
-                        f"Created and switched to new session: {new_session_id}"
-                    )
-                    # Save session ID to .paca_session for CLI tools
-                    try:
-                        Path(".paca_session").write_text(new_session_id)
-                    except Exception as e:
-                        log.warning("Failed to save session ID to .paca_session: %s", e)
-                except Exception as e:
-                    log.exception("Error creating new session: %s", e)
-                    await self.send_to_matrix(f"Error creating new session: {e}")
             else:
                 # Switch to session by index
                 try:
@@ -384,7 +386,7 @@ To send a message starting with ! to the agent, use !! (e.g., !!echo)"""
                                 )
                 except ValueError:
                     await self.send_to_matrix(
-                        "Usage: !session <0-9> (select session by index), or !session new"
+                        "Usage: !session <0-9> (select session by index), or !new to create a new session"
                     )
                 except Exception as e:
                     log.exception("Error switching session: %s", e)
