@@ -37,6 +37,7 @@ skip = [".direnv", "result", ".venv"]
 typeCheckingMode = "strict"
 reportMissingTypeStubs = "none"
 exclude = [".direnv", "result", ".venv"]
+extraPaths = ["."]
 
 # Disable private usage warnings for tests since they need to test internal methods
 executionEnvironments = [
