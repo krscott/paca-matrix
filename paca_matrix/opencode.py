@@ -323,6 +323,52 @@ class OpencodeClient:
 
         log.info("Session aborted successfully")
 
+    async def list_sessions(self, limit: int = 10) -> list[dict[str, Any]]:
+        """List recent sessions from OpenCode.
+
+        Returns a list of session objects with id, name, created_at, etc.
+        """
+        if not self.http_session or not self.server_url:
+            raise RuntimeError("HTTP session not initialized")
+
+        url = f"{self.server_url}/sessions?limit={limit}"
+        log.debug("Listing sessions from: %s", url)
+
+        async with self.http_session.get(url) as resp:
+            if resp.status != 200:
+                text = await resp.text()
+                raise RuntimeError(f"HTTP error {resp.status}: {text}")
+
+            data: dict[str, Any] = await resp.json()
+            sessions: list[dict[str, Any]] = data.get("sessions", [])
+            log.info("Retrieved %d sessions", len(sessions))
+            return sessions
+
+    async def switch_session(self, session_id: str) -> None:
+        """Switch to an existing session by ID."""
+        if not self.http_session or not self.server_url:
+            raise RuntimeError("HTTP session not initialized")
+
+        # Validate session_id to prevent path traversal or injection
+        if not session_id or len(session_id) > MAX_SESSION_NAME_LENGTH:
+            raise ValueError(f"Invalid session_id length: {len(session_id)}")
+        if not session_id.replace("-", "").replace("_", "").isalnum():
+            raise ValueError(f"Invalid session_id format: {session_id}")
+
+        url = f"{self.server_url}/session/{session_id}"
+        log.debug("Switching to session: %s", url)
+
+        async with self.http_session.get(url) as resp:
+            if resp.status == 200:
+                session_data = await resp.json()
+                self.session_id = session_data["id"]
+                log.info("Switched to session: %s", self.session_id)
+            else:
+                text = await resp.text()
+                raise RuntimeError(
+                    f"Failed to switch to session '{session_id}': {resp.status} {text}"
+                )
+
     async def stop(self) -> None:
         if self.http_session:
             await self.http_session.close()
