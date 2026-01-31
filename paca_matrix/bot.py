@@ -4,6 +4,8 @@ import time
 from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Any
+from pathlib import Path
+import subprocess
 
 from nio import Event, MatrixRoom, RoomMessageText
 
@@ -291,8 +293,6 @@ class PacaBot:
                 await self.send_to_matrix(f"Error killing agent: {e}")
 
         elif command == "!uptime":
-            import subprocess
-
             result = subprocess.run(
                 ["uptime", "-p"], capture_output=True, text=True, timeout=5
             )
@@ -316,15 +316,17 @@ class PacaBot:
                         lines = ["Recent sessions:"]
                         for i, session in enumerate(sessions[:10]):
                             session_id = session.get("id", "unknown")
-                            name = session.get("name", "")
-                            created = session.get("created_at", "")
-                            prefix = "* " if session_id == self.opencode_client.session_id else "  "
-                            if name:
-                                lines.append(f"{prefix}{i}. {session_id} ({name}) {created}")
-                            else:
-                                lines.append(f"{prefix}{i}. {session_id} {created}")
+                            title = session.get("title", "")
+                            prefix = (
+                                "* "
+                                if session_id == self.opencode_client.session_id
+                                else "  "
+                            )
+                            lines.append(f"{prefix}{i}. {title} {session_id}")
                         lines.append("")
-                        lines.append("Use !session <0-9> to switch to a session. * = current")
+                        lines.append(
+                            "Use !session <0-9> to switch to a session. * = current"
+                        )
                         await self.send_to_matrix("\n".join(lines))
                 except Exception as e:
                     log.exception("Error listing sessions: %s", e)
@@ -334,24 +336,32 @@ class PacaBot:
                 try:
                     index = int(args[0])
                     if not 0 <= index <= 9:
-                        await self.send_to_matrix("Usage: !session <0-9> (select session by index)")
+                        await self.send_to_matrix(
+                            "Usage: !session <0-9> (select session by index)"
+                        )
                     else:
                         sessions = await self.opencode_client.list_sessions(limit=10)
                         if index >= len(sessions):
-                            await self.send_to_matrix(f"Invalid index {index}. Only {len(sessions)} sessions available.")
+                            await self.send_to_matrix(
+                                f"Invalid index {index}. Only {len(sessions)} sessions available."
+                            )
                         else:
                             session_id = sessions[index]["id"]
                             await self.opencode_client.switch_session(session_id)
-                            await self.send_to_matrix(f"Switched to session: {session_id}")
+                            await self.send_to_matrix(
+                                f"Switched to session: {session_id}"
+                            )
                             # Save session ID to .paca_session for CLI tools
                             try:
-                                from pathlib import Path
-
                                 Path(".paca_session").write_text(session_id)
                             except Exception as e:
-                                log.warning("Failed to save session ID to .paca_session: %s", e)
+                                log.warning(
+                                    "Failed to save session ID to .paca_session: %s", e
+                                )
                 except ValueError:
-                    await self.send_to_matrix("Usage: !session <0-9> (select session by index)")
+                    await self.send_to_matrix(
+                        "Usage: !session <0-9> (select session by index)"
+                    )
                 except Exception as e:
                     log.exception("Error switching session: %s", e)
                     await self.send_to_matrix(f"Error switching session: {e}")
@@ -520,8 +530,6 @@ class PacaBot:
         # Save session ID to .paca_session for CLI tools
         if self.opencode_client.session_id:
             try:
-                from pathlib import Path
-
                 Path(".paca_session").write_text(self.opencode_client.session_id)
             except Exception as e:
                 log.warning("Failed to save session ID to .paca_session: %s", e)

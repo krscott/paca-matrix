@@ -339,9 +339,8 @@ class OpencodeClient:
                 text = await resp.text()
                 raise RuntimeError(f"HTTP error {resp.status}: {text}")
 
-            data: dict[str, Any] = await resp.json()
-            sessions: list[dict[str, Any]] = data.get("sessions", [])
-            log.info("Retrieved %d sessions", len(sessions))
+            sessions: list[dict[str, Any]] = await resp.json()
+            log.debug("Retrieved %d sessions", len(sessions))
             return sessions
 
     async def switch_session(self, session_id: str) -> None:
