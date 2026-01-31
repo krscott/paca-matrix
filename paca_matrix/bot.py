@@ -265,15 +265,24 @@ class PacaBot:
         command = parts[0].lower()
         args = parts[1:] if len(parts) > 1 else []
 
-        if command == "!echo":
+        if command == "!help":
+            help_text = """Available commands:
+!echo <message> - Echo a message back
+!stop - Stop the current agent session
+!kill - Kill agent and exit bot
+!uptime - Show system uptime
+!session - List/switch sessions (use !session new or !session <0-9>)
+!help - Show this help message
+
+To send a message starting with ! to the agent, use !! (e.g., !!echo)"""
+            await self.send_to_matrix(help_text)
+
+        elif command == "!echo":
             if len(args) == 0:
                 await self.send_to_matrix("Usage: !echo <message>")
             else:
                 echo_msg = args[0]
                 await self.send_to_matrix(f"Echo: {echo_msg}")
-
-        elif command == "!think":
-            await self.indicate_typing(False)
 
         elif command == "!stop":
             try:
