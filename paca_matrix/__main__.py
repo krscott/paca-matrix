@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import aiohttp
 from dotenv import find_dotenv, load_dotenv
 from nio import AsyncClient  # pyright: ignore
 from nio.responses import ErrorResponse  # type: ignore
@@ -88,14 +89,25 @@ def main() -> None:
         asyncio.run(matrix_login())
     elif opts.opencode_client:
         setproctitle("pacacode")
-        run_opencode_attach(opts.opencode_port, opts.session_name)
+        asyncio.run(run_opencode_client_with_server(opts))
     elif opts.opencode_web:
-        run_opencode_web(opts.opencode_port, opts.session_name)
+        asyncio.run(run_opencode_web_with_server(opts))
     else:
         try:
             asyncio.run(run_bot(opts))
         except KeyboardInterrupt:
             pass
+
+
+async def is_opencode_server_running(port: int) -> bool:
+    """Check if an opencode server is already running on the given port."""
+    url = f"http://127.0.0.1:{port}"
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=2)):
+                return True
+    except Exception:
+        return False
 
 
 async def start_opencode_server(port: int) -> tuple[str, asyncio.subprocess.Process]:
@@ -180,6 +192,96 @@ def run_opencode_web(port: int, session_id: str | None) -> None:
 
     log.info("Opening opencode web view at %s", url)
     webbrowser.open(url)
+
+
+async def run_opencode_client_with_server(opts: "CliOpts") -> None:
+    """Run opencode client, starting bot if needed. Stops bot when client exits."""
+    port = opts.opencode_port
+    bot_task: asyncio.Task[None] | None = None
+
+    # Check if server is already running
+    if not await is_opencode_server_running(port):
+        log.info("No paca instance running, starting bot...")
+        # Start the bot in a background task
+        bot_task = asyncio.create_task(run_bot(opts))
+
+        # Wait for server to be ready
+        for _ in range(30):  # Try for 30 seconds
+            await asyncio.sleep(1)
+            if await is_opencode_server_running(port):
+                log.info("Bot started and server is ready")
+                break
+        else:
+            log.error("Bot failed to start within 30 seconds")
+            if bot_task:
+                bot_task.cancel()
+                try:
+                    await bot_task
+                except asyncio.CancelledError:
+                    pass
+            return
+
+    try:
+        # Run the attach command (blocks until client closes)
+        run_opencode_attach(port, opts.session_name)
+    finally:
+        # Stop the bot if we started it
+        if bot_task:
+            log.info("Client closed, stopping bot...")
+            bot_task.cancel()
+            try:
+                await bot_task
+            except asyncio.CancelledError:
+                pass
+
+
+async def run_opencode_web_with_server(opts: "CliOpts") -> None:
+    """Open opencode web view, starting bot if needed. Bot continues running."""
+    port = opts.opencode_port
+    bot_task: asyncio.Task[None] | None = None
+
+    # Check if server is already running
+    if not await is_opencode_server_running(port):
+        log.info("No paca instance running, starting bot...")
+        # Start the bot in a background task
+        bot_task = asyncio.create_task(run_bot(opts))
+
+        # Wait for server to be ready
+        for _ in range(30):  # Try for 30 seconds
+            await asyncio.sleep(1)
+            if await is_opencode_server_running(port):
+                log.info("Bot started and server is ready")
+                break
+        else:
+            log.error("Bot failed to start within 30 seconds")
+            if bot_task:
+                bot_task.cancel()
+                try:
+                    await bot_task
+                except asyncio.CancelledError:
+                    pass
+            return
+
+        # Open the web browser
+        run_opencode_web(port, opts.session_name)
+
+        # Keep the bot running (don't stop it)
+        log.info("Bot started and browser opened. Bot will keep running.")
+        try:
+            # Wait for the bot task to complete (it won't unless killed)
+            if bot_task:
+                await bot_task
+        except KeyboardInterrupt:
+            log.info("Received interrupt, stopping bot...")
+            if bot_task:
+                bot_task.cancel()
+                try:
+                    await bot_task
+                except asyncio.CancelledError:
+                    pass
+    else:
+        # Server is already running, just open the browser
+        run_opencode_web(port, opts.session_name)
 
 
 async def matrix_login() -> None:
@@ -457,7 +559,10 @@ class CliOpts:
 
         args = parser.parse_args()
 
-        if not args.login and not (
+        # Allow -c/-w without credentials if server is already running
+        # We'll check at runtime if we need to start the bot
+        client_mode = args.opencode_client or args.opencode_web
+        if not args.login and not client_mode and not (
             args.homeserver and args.user_id and args.device_id and args.access_token
         ):
             parser.error(
