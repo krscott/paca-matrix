@@ -3,6 +3,7 @@ import asyncio
 import base64
 import getpass
 import logging
+import logging.handlers
 import os
 import re
 import signal
@@ -48,9 +49,31 @@ def main() -> None:
 
     opts = CliOpts.parse_args()
 
+    # Set up handlers: console + rotating file
+    handlers: list[logging.Handler] = [logging.StreamHandler()]
+
+    # Determine log file path (XDG-compliant default)
+    log_file_path = opts.log_file
+    if log_file_path is None:
+        xdg_data_home = os.environ.get(
+            "XDG_DATA_HOME", Path.home() / ".local" / "share"
+        )
+        log_dir = Path(xdg_data_home) / "paca" / "logs"
+        log_file_path = str(log_dir / "paca.log")
+
+    # Ensure log directory exists
+    Path(log_file_path).parent.mkdir(parents=True, exist_ok=True)
+
+    # Add rotating file handler (10MB per file, 3 backups = ~40MB max)
+    file_handler = logging.handlers.RotatingFileHandler(
+        log_file_path, maxBytes=10 * 1024 * 1024, backupCount=3
+    )
+    handlers.append(file_handler)
+
     logging.basicConfig(
         level=logging.DEBUG if opts.verbose else logging.INFO,
-        format="%(name)s %(levelname)s %(message)s",
+        format="%(asctime)s %(name)s %(levelname)s %(message)s",
+        handlers=handlers,
     )
 
     # INFO is still too verbose
@@ -331,6 +354,7 @@ class CliOpts:
     opencode_client: bool
     opencode_web: bool
     resume: bool
+    log_file: str | None
 
     @staticmethod
     def parse_args() -> "CliOpts":
@@ -423,6 +447,13 @@ class CliOpts:
             action="store_true",
             help="Open the OpenCode web view for paca's server",
         )
+        parser.add_argument(
+            "--log-file",
+            required=False,
+            action=EnvAction,
+            env_var="PACAMATRIX_LOG_FILE",
+            help="Path to log file (default: ~/.local/share/paca/logs/paca.log, env: PACAMATRIX_LOG_FILE)",
+        )
 
         args = parser.parse_args()
 
@@ -455,6 +486,7 @@ class CliOpts:
             opencode_client=args.opencode_client,
             opencode_web=args.opencode_web,
             resume=args.resume,
+            log_file=args.log_file,
         )
 
 
