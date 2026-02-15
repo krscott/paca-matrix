@@ -562,8 +562,15 @@ class CliOpts:
         # Allow -c/-w without credentials if server is already running
         # We'll check at runtime if we need to start the bot
         client_mode = args.opencode_client or args.opencode_web
-        if not args.login and not client_mode and not (
-            args.homeserver and args.user_id and args.device_id and args.access_token
+        if (
+            not args.login
+            and not client_mode
+            and not (
+                args.homeserver
+                and args.user_id
+                and args.device_id
+                and args.access_token
+            )
         ):
             parser.error(
                 "--homeserver, --user-id, --device-id, and --access-token are required when not using --login"
