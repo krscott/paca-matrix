@@ -47,7 +47,10 @@
           program = pkgs.lib.getExe (
             pkgs.writeShellApplication {
               name = "app";
-              runtimeInputs = [ pythonDev ];
+              runtimeInputs = [
+                pythonDev
+                pkgs.pyright
+              ];
               inherit text;
             }
           );
