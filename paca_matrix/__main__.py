@@ -519,6 +519,7 @@ class CliOpts:
             help=f"Port for the automatically started opencode server (env: PACAMATRIX_OPENCODE_PORT, default: {DEFAULT_PORT})",
         )
         parser.add_argument(
+            "-s",
             "--session",
             required=False,
             action=EnvAction,
