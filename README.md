@@ -78,6 +78,7 @@ paca --homeserver https://matrix.org --user-id @bot:example.com --device-id YOUR
 - `--verbose` - Enable debug logging
 - `--login` - Set up Matrix credentials interactively
 - `-c, --opencode-client` - Open the OpenCode client attached to paca's server
+- `-w, --opencode-web` - Open OpenCode web view in browser (auto-starts server if needed)
 
 ### Environment Variables
 
@@ -146,7 +147,13 @@ Specifies the port for the automatically started OpenCode server. If not specifi
 ```bash
 paca --opencode-client
 ```
-Opens the OpenCode client attached to paca's server. Useful for debugging or manual interaction.
+Opens the OpenCode client attached to paca's server. If no paca instance is running, it will auto-start the bot and stop it when the client exits.
+
+**OpenCode Web**
+```bash
+paca --opencode-web
+```
+Opens OpenCode web view in your browser. If no paca instance is running, it will auto-start the bot, open the browser, and keep the bot running.
 
 **Session Management**
 ```bash
