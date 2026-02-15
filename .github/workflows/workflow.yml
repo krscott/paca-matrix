@@ -33,8 +33,14 @@ jobs:
     - name: Check Mypy
       run: nix run -L .#mypy
 
+    - name: Check Pyright
+      run: nix run -L .#pyright
+
     - name: Check Develop Shell
       run: nix develop --command bash -c 'paca --help'
 
     - name: Test and Build
       run: nix build -L
+
+    - name: Check nix
+      run: nix flake show '.?submodules=1'

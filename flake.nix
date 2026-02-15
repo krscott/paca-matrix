@@ -21,12 +21,14 @@
     flake-utils.lib.eachSystem supportedSystems (
       system:
       let
-        pkgs = nixpkgs.legacyPackages.${system};
+        localOverlay = import ./overlay.nix;
 
-        # Final derivation including any overrides made to output package
-        inherit (self.packages.${system}) paca-matrix;
+        pkgs = import nixpkgs {
+          inherit system;
+          overlays = [ localOverlay ];
+        };
 
-        pythonDev = paca-matrix.python.withPackages (
+        pythonDev = pkgs.python3.pkgs.paca-matrix.pythonModule.withPackages (
           ps:
           with ps;
           [
@@ -36,8 +38,8 @@
             pytest
             pytest-asyncio
           ]
-          ++ paca-matrix.propagatedBuildInputs
-          ++ paca-matrix.nativeBuildInputs
+          ++ pkgs.python3.pkgs.paca-matrix.propagatedBuildInputs
+          ++ pkgs.python3.pkgs.paca-matrix.nativeBuildInputs
         );
 
         mkApp = text: {
@@ -53,15 +55,17 @@
       in
       {
         packages = {
-          default = paca-matrix;
-
-          paca-matrix = pkgs.python3.pkgs.callPackage ./. { };
+          inherit (pkgs) paca-matrix;
+          default = pkgs.paca-matrix;
         };
 
         devShells = {
           default = pkgs.mkShell {
-            inputsFrom = [ paca-matrix ];
-            nativeBuildInputs = [ pythonDev ];
+            inputsFrom = [ ];
+            nativeBuildInputs = [
+              pythonDev
+              pkgs.pyright
+            ];
             packages = [ pkgs.python3.pkgs.venvShellHook ];
             venvDir = ".venv";
             postVenvCreation = ''
@@ -84,6 +88,10 @@
 
           mypy = mkApp ''
             mypy . "$@"
+          '';
+
+          pyright = mkApp ''
+            pyright . "$@"
           '';
         };
 

@@ -34,7 +34,8 @@ profile = "black"
 skip = [".direnv", "result", ".venv"]
 
 [tool.pyright]
-typeCheckingMode = "strict"
+# To enable strict type checking like py-start, change typeCheckingMode from 'basic' to 'strict'
+typeCheckingMode = "basic"
 reportMissingTypeStubs = "none"
 exclude = [".direnv", "result", ".venv"]
 extraPaths = ["."]

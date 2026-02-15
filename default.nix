@@ -1,16 +1,15 @@
 {
-  python,
-  buildPythonApplication,
+  buildPythonPackage,
   lib,
+  pytestCheckHook,
+  pytest-asyncio,
   aiohttp,
   matrix-nio,
-  pytest,
-  pytest-asyncio,
   python-dotenv,
   setproctitle,
   setuptools,
 }:
-buildPythonApplication {
+buildPythonPackage {
   name = "paca-matrix";
   src = lib.cleanSource ./.;
   pyproject = true;
@@ -25,19 +24,11 @@ buildPythonApplication {
   ];
 
   nativeCheckInputs = [
-    pytest
+    pytestCheckHook
     pytest-asyncio
   ];
 
-  checkPhase = ''
-    pytest
-  '';
-
   pythonImportsCheck = [ "paca_matrix" ];
-
-  passthru = {
-    inherit python;
-  };
 
   meta = {
     mainProgram = "paca";
