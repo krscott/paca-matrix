@@ -78,8 +78,8 @@ def test_run_opencode_web_with_stored_session(
     session_file = mock_get_share_dir / ".paca_session"
     session_file.write_text(session_id)
 
-    expected_project_id = base64.urlsafe_b64encode(b"/home/user/project").decode().rstrip(
-        "="
+    expected_project_id = (
+        base64.urlsafe_b64encode(b"/home/user/project").decode().rstrip("=")
     )
     expected_url = f"http://127.0.0.1:4096/{expected_project_id}/session/{session_id}"
 

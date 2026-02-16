@@ -9,8 +9,8 @@ from typing import Any
 from nio import Event, MatrixRoom, RoomMessageText
 
 from paca_matrix.matrix import MatrixClient
-from paca_matrix.utils import get_share_dir
 from paca_matrix.opencode import OpencodeClient
+from paca_matrix.utils import get_share_dir
 
 log = logging.getLogger(__name__)
 

@@ -51,7 +51,12 @@ class TestGetShareDir:
         # Calculate expected path
         repo_hash = hashlib.sha256(str(custom_dir.resolve()).encode()).hexdigest()[:16]
         expected_dir = (
-            home_dir / ".local" / "share" / "paca" / "repos" / f"{repo_hash}-custom-project"
+            home_dir
+            / ".local"
+            / "share"
+            / "paca"
+            / "repos"
+            / f"{repo_hash}-custom-project"
         )
 
         result = get_share_dir(cwd=custom_dir)
@@ -60,7 +65,9 @@ class TestGetShareDir:
         # Directory is not created automatically, only the path is returned
         assert not result.exists()
 
-    def test_hash_uniqueness(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_hash_uniqueness(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test that different paths produce different hashes."""
         home_dir = tmp_path / "home"
         home_dir.mkdir()
@@ -100,7 +107,9 @@ class TestGetShareDir:
 
         assert result == expected_dir
 
-    def test_directory_not_created(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_directory_not_created(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test that the directory is NOT created automatically."""
         home_dir = tmp_path / "home"
         home_dir.mkdir()
@@ -124,7 +133,9 @@ class TestGetShareDir:
         # Directory should still not exist - callers must create it when needed
         assert not result.exists()
 
-    def test_empty_dirname_fallback(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_empty_dirname_fallback(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test that empty dirnames fallback to 'unnamed'."""
         home_dir = tmp_path / "home"
         home_dir.mkdir()
@@ -135,7 +146,9 @@ class TestGetShareDir:
         root_path = Path("/")
 
         repo_hash = hashlib.sha256(str(root_path.resolve()).encode()).hexdigest()[:16]
-        expected_dir = home_dir / ".local" / "share" / "paca" / "repos" / f"{repo_hash}-unnamed"
+        expected_dir = (
+            home_dir / ".local" / "share" / "paca" / "repos" / f"{repo_hash}-unnamed"
+        )
 
         result = get_share_dir(cwd=root_path)
 
