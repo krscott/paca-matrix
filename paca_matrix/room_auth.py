@@ -56,7 +56,7 @@ def display_auth_code(code: str) -> None:
     """
     log.info("Room authentication code: %s", code)
 
-    border = "=" * (len(code) + 14)
+    border = "=" * (len(code) + 16)
     print()
     print(border)
     print(f"  AUTH CODE:  {code}  ")

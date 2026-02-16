@@ -76,7 +76,7 @@ class PacaBot:
         self._event_listener_task: asyncio.Task[None] | None = None
         # Use OrderedDict as LRU cache for seen event IDs (bounded memory)
         self._seen_event_ids: OrderedDict[str, None] = OrderedDict()
-        self._start_time_ms: int = int(time.time() * 1000)
+        self._start_time_ms: int = 0  # Will be set when run_forever() starts
         # Use OrderedDict as LRU cache for sent message IDs (bounded memory)
         self._sent_message_ids: OrderedDict[str, None] = OrderedDict()
         self._pending_question: PendingQuestion | None = None
@@ -608,6 +608,8 @@ To send a message starting with ! to the agent, use !! (e.g., !!echo)"""
 
     async def run_forever(self) -> None:
         log.info("Starting bot...")
+        # Set start time now (not in __init__) to avoid filtering messages sent during auth
+        self._start_time_ms = int(time.time() * 1000)
         await self.opencode_client.start()
 
         # Save session ID to .paca_session for CLI tools
@@ -620,6 +622,18 @@ To send a message starting with ! to the agent, use !! (e.g., !!echo)"""
                 log.warning("Failed to save session ID to .paca_session: %s", e)
 
         await self.matrix_bot.setup_message_handler(self.message_callback)
+
+        # Do initial sync to get room information
+        await self.matrix_bot.client.sync()
+
+        # Set current room from authenticated room_id
+        if self.room_id and self.room_id in self.matrix_bot.client.rooms:
+            self.current_room = self.matrix_bot.client.rooms[self.room_id]
+            log.info("Set current room to %s", self.room_id)
+        elif self.room_id:
+            log.warning(
+                "Authenticated room %s not found in Matrix client rooms", self.room_id
+            )
 
         # Start the event listener as a background task
         self._event_listener_task = asyncio.create_task(
