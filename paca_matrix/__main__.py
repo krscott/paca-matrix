@@ -28,6 +28,13 @@ DEFAULT_PORT = 4096
 
 log = logging.getLogger(__name__)
 
+
+class BotStartupError(Exception):
+    """Exception raised when the bot fails to start due to configuration errors."""
+
+    pass
+
+
 # Global reference for use by _signal_handler
 _bot_instance: PacaBot | None = None
 _opencode_process: asyncio.subprocess.Process | None = None
@@ -92,12 +99,20 @@ def main() -> None:
         asyncio.run(matrix_login())
     elif opts.opencode_client:
         setproctitle("pacacode")
-        asyncio.run(run_opencode_client_with_server(opts))
+        try:
+            asyncio.run(run_opencode_client_with_server(opts))
+        except BotStartupError:
+            raise SystemExit(1)
     elif opts.opencode_web:
-        asyncio.run(run_opencode_web_with_server(opts))
+        try:
+            asyncio.run(run_opencode_web_with_server(opts))
+        except BotStartupError:
+            raise SystemExit(1)
     else:
         try:
             asyncio.run(run_bot(opts))
+        except BotStartupError:
+            raise SystemExit(1)
         except KeyboardInterrupt:
             pass
 
@@ -210,9 +225,22 @@ async def run_opencode_client_with_server(opts: "CliOpts") -> None:
         # Start the bot in a background task
         bot_task = asyncio.create_task(run_bot(opts))
 
-        # Wait for server to be ready
+        # Wait for server to be ready (check more frequently initially)
         for _ in range(30):  # Try for 30 seconds
             await asyncio.sleep(1)
+            # Check if bot failed immediately
+            if bot_task.done():
+                try:
+                    await bot_task
+                except BotStartupError:
+                    # Bot failed to start due to configuration error
+                    raise
+                except Exception as e:
+                    log.error("Bot failed to start: %s", e)
+                    raise SystemExit(1) from e
+                # Bot completed successfully (shouldn't happen)
+                log.error("Bot exited unexpectedly")
+                raise SystemExit(1)
             if await is_opencode_server_running(port):
                 log.info("Bot started and server is ready")
                 break
@@ -224,7 +252,7 @@ async def run_opencode_client_with_server(opts: "CliOpts") -> None:
                     await bot_task
                 except asyncio.CancelledError:
                     pass
-            return
+            raise SystemExit(1)
 
     try:
         # Run the attach command (blocks until client closes)
@@ -254,6 +282,19 @@ async def run_opencode_web_with_server(opts: "CliOpts") -> None:
         # Wait for server to be ready
         for _ in range(30):  # Try for 30 seconds
             await asyncio.sleep(1)
+            # Check if bot failed immediately
+            if bot_task.done():
+                try:
+                    await bot_task
+                except BotStartupError:
+                    # Bot failed to start due to configuration error
+                    raise
+                except Exception as e:
+                    log.error("Bot failed to start: %s", e)
+                    raise SystemExit(1) from e
+                # Bot completed successfully (shouldn't happen)
+                log.error("Bot exited unexpectedly")
+                raise SystemExit(1)
             if await is_opencode_server_running(port):
                 log.info("Bot started and server is ready")
                 break
@@ -265,7 +306,7 @@ async def run_opencode_web_with_server(opts: "CliOpts") -> None:
                     await bot_task
                 except asyncio.CancelledError:
                     pass
-            return
+            raise SystemExit(1)
 
         # Open the web browser
         run_opencode_web(port, opts.session_name)
@@ -393,7 +434,10 @@ async def run_bot(opts: "CliOpts") -> None:
             "Bot requires --homeserver, --user-id, --device-id, and --access-token"
         )
         log.info("Or use --login to set up credentials")
-        return
+        raise BotStartupError(
+            "Missing required credentials. Use --login to set up or provide "
+            "--homeserver, --user-id, --device-id, and --access-token"
+        )
 
     global _bot_instance, _opencode_process
 
