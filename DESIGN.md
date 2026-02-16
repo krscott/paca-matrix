@@ -81,27 +81,41 @@ To recreate this system:
 5. **Run**: `paca` to start the bot
 
 All state is ephemeral except:
-- Matrix credentials (stored in `~/.local/share/paca/repos/<hash16>-<dirname>/.env`)
-- Session file (`.paca_session` in share directory)
-- Matrix store (`.nio_store` in share directory)
+- Matrix credentials (stored globally at `~/.local/share/paca/.env` by default)
+- Per-repo credentials (stored at `~/.local/share/paca/repos/<hash16>-<dirname>/.env`)
+- Session file (`.paca_session` in per-repo share directory)
+- Matrix store (`.nio_store` in per-repo share directory)
 
 ## Data Storage
 
-Files are stored in `~/.local/share/paca/repos/<hash16>-<dirname>/` where:
+### Global Storage
+Credentials are stored in `~/.local/share/paca/.env` by default and shared across all repositories.
+
+### Per-Repo Storage
+Repository-specific files are stored in `~/.local/share/paca/repos/<hash16>-<dirname>/` where:
 - `<hash16>`: First 16 characters of SHA256(absolute repo path)
 - `<dirname>`: Directory name of the repo
 
-This provides a deterministic, unique location per repository that persists across working directory changes.
-
-Example:
+### Storage Layout Example
 ```
-Repo: /home/user/projects/my-app
-Share: ~/.local/share/paca/repos/a3f2b8d1e4c5a7b9-my-app/
-  ├── .env              # Matrix credentials
-  ├── .paca_session     # Current session ID
-  └── .nio_store/       # Matrix client store
+~/.local/share/paca/
+├── .env                    # Global Matrix credentials (default)
+├── logs/
+│   └── paca.log
+└── repos/
+    └── a3f2b8d1e4c5a7b9-my-app/   # Per-repo storage
+        ├── .env            # Per-repo Matrix credentials (optional)
+        ├── .paca_session   # Current session ID
+        └── .nio_store/     # Matrix client store
 ```
 
-Environment files are loaded in order:
-1. Local `.env` in working directory (if exists)
-2. Share directory `.env` (overrides local values)
+### Credential Loading Priority
+Environment variables and files are loaded in order (highest to lowest priority):
+1. **Environment variables** (already set in shell)
+2. **Local `.env`** in working directory (if exists)
+3. **Per-repo `.env`** at `~/.local/share/paca/repos/<hash16>-<dirname>/.env`
+4. **Global `.env`** at `~/.local/share/paca/.env`
+
+### Login Commands
+- `paca --login` - Saves credentials to global location (shared across repos)
+- `paca --login --per-repo` - Saves credentials to per-repo location

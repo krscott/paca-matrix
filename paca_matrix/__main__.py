@@ -20,7 +20,7 @@ from nio.responses import ErrorResponse  # type: ignore
 from setproctitle import setproctitle
 
 from paca_matrix.bot import PacaBot
-from paca_matrix.utils import get_share_dir
+from paca_matrix.utils import get_global_share_dir, get_share_dir
 
 DEFAULT_MATRIX_HOMESERVER = "https://matrix.org"
 DEFAULT_BOT_NAME = "paca-bot"
@@ -54,9 +54,13 @@ def main() -> None:
 
     signal.signal(signal.SIGTERM, _signal_handler)
 
-    # Load .env files: local first, then share location (share overrides local)
+    # Load .env files in priority order (later files override earlier ones):
+    # 1. Local .env (highest priority for files)
+    # 2. Per-repo share .env
+    # 3. Global share .env (lowest priority for files)
     load_dotenv(find_dotenv(usecwd=True))
     load_dotenv(get_share_dir() / ".env")
+    load_dotenv(get_global_share_dir() / ".env")
 
     opts = CliOpts.parse_args()
 
@@ -96,7 +100,7 @@ def main() -> None:
     logging.getLogger("nio.responses").setLevel(logging.INFO)
 
     if opts.login:
-        asyncio.run(matrix_login())
+        asyncio.run(matrix_login(per_repo=opts.per_repo))
     elif opts.opencode_client:
         setproctitle("pacacode")
         try:
@@ -330,7 +334,7 @@ async def run_opencode_web_with_server(opts: "CliOpts") -> None:
         run_opencode_web(port, opts.session_name)
 
 
-async def matrix_login() -> None:
+async def matrix_login(per_repo: bool = False) -> None:
     homeserver = input(
         f"Homeserver URL (default: '{DEFAULT_MATRIX_HOMESERVER}'): "
     ).strip()
@@ -380,7 +384,14 @@ async def matrix_login() -> None:
                 )
                 return
 
-        env_path = get_share_dir() / ".env"
+        # Choose storage location based on --per-repo flag
+        if per_repo:
+            env_path = get_share_dir() / ".env"
+            location_desc = "per-repo"
+        else:
+            env_path = get_global_share_dir() / ".env"
+            location_desc = "global (shared across all repos)"
+
         # Use individual lines to avoid f-string injection issues
         env_lines = [
             f"PACAMATRIX_HOMESERVER={homeserver}",
@@ -393,7 +404,7 @@ async def matrix_login() -> None:
         env_path.write_text(env_content)
         os.chmod(env_path, 0o600)
         log.info("Login successful!")
-        log.info("Credentials saved to %s", env_path)
+        log.info("Credentials saved to %s (%s)", env_path, location_desc)
         log.info("You can now run bot with: paca")
     finally:
         await client.close()
@@ -494,6 +505,7 @@ async def run_bot(opts: "CliOpts") -> None:
 class CliOpts:
     verbose: bool
     login: bool
+    per_repo: bool
     homeserver: str | None
     user_id: str | None
     device_id: str | None
@@ -523,6 +535,11 @@ class CliOpts:
             "--login",
             action="store_true",
             help="Log in to Matrix homeserver and save credentials to .env",
+        )
+        parser.add_argument(
+            "--per-repo",
+            action="store_true",
+            help="Store credentials in per-repo location instead of global (use with --login)",
         )
         parser.add_argument(
             "--homeserver",
@@ -638,6 +655,7 @@ class CliOpts:
         return CliOpts(
             verbose=args.verbose is not None,
             login=args.login,
+            per_repo=args.per_repo,
             homeserver=args.homeserver,
             user_id=args.user_id,
             device_id=args.device_id,

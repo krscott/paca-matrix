@@ -146,24 +146,32 @@ parser.add_argument(
 )
 ```
 
-### get_share_dir
+### get_share_dir and get_global_share_dir
 
-`get_share_dir()` in `paca_matrix/utils.py` provides a deterministic, repo-specific storage location:
+`get_share_dir()` and `get_global_share_dir()` in `paca_matrix/utils.py` provide storage locations:
 
 ```python
 from pathlib import Path
-from paca_matrix.utils import get_share_dir
+from paca_matrix.utils import get_share_dir, get_global_share_dir
 
-# Get share directory for current repo
-share_dir = get_share_dir()
+# Get per-repo share directory (unique per repository)
+share_dir = get_share_dir()  # ~/.local/share/paca/repos/<hash16>-<dirname>/
 
-# Get share directory for a specific path
-share_dir = get_share_dir(cwd=Path("/path/to/repo"))
-
-# Results in: ~/.local/share/paca/repos/<hash16>-<dirname>/
+# Get global share directory (shared across all repos)
+global_dir = get_global_share_dir()  # ~/.local/share/paca/
 ```
 
+**Credential Loading Priority** (highest to lowest):
+1. Environment variables
+2. Local `.env` in working directory
+3. Per-repo `.env` (`~/.local/share/paca/repos/<hash16>-<dirname>/.env`)
+4. Global `.env` (`~/.local/share/paca/.env`)
+
+**Usage:**
+- `paca --login` - Saves credentials to global location (shared across repos)
+- `paca --login --per-repo` - Saves credentials to per-repo location
+
 Used for storing:
-- `.env` - Matrix credentials
-- `.paca_session` - Session ID for resuming
-- `.nio_store/` - Matrix client persistent storage
+- `.env` - Matrix credentials (global or per-repo)
+- `.paca_session` - Session ID for resuming (per-repo only)
+- `.nio_store/` - Matrix client persistent storage (per-repo only)
