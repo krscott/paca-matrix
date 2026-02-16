@@ -64,7 +64,10 @@ def main() -> None:
     opts = CliOpts.parse_args()
 
     # Set up handlers: console + rotating file
-    handlers: list[logging.Handler] = [logging.StreamHandler()]
+    # In combined mode (client attached), skip console handler to avoid TUI corruption
+    handlers: list[logging.Handler] = []
+    if not (opts.opencode_client or opts.opencode_web):
+        handlers.append(logging.StreamHandler())
 
     # Determine log file path (XDG-compliant default)
     log_file_path = opts.log_file
@@ -89,6 +92,10 @@ def main() -> None:
         format="%(asctime)s %(name)s %(levelname)s %(message)s",
         handlers=handlers,
     )
+
+    # In combined mode, print log location since console logs are disabled
+    if opts.opencode_client or opts.opencode_web:
+        print(f"Logs: {log_file_path}")
 
     # INFO is still too verbose
     logging.getLogger("nio").setLevel(
