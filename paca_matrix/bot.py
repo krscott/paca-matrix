@@ -4,12 +4,12 @@ import subprocess
 import time
 from collections import OrderedDict
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 from nio import Event, MatrixRoom, RoomMessageText
 
 from paca_matrix.matrix import MatrixClient
+from paca_matrix.utils import get_share_dir
 from paca_matrix.opencode import OpencodeClient
 
 log = logging.getLogger(__name__)
@@ -51,11 +51,13 @@ class PacaBot:
         session_name: str | None = None,
         model: str | None = None,
     ) -> None:
+        share_dir = get_share_dir()
         self.matrix_bot = MatrixClient(
             homeserver=homeserver,
             user_id=user_id,
             device_id=device_id,
             access_token=access_token,
+            store_path=share_dir / ".nio_store",
         )
         self.opencode_client = OpencodeClient(
             server_url=opencode_server_url,
@@ -324,7 +326,8 @@ To send a message starting with ! to the agent, use !! (e.g., !!echo)"""
                 )
                 # Save session ID to .paca_session for CLI tools
                 try:
-                    Path(".paca_session").write_text(new_session_id)
+                    session_file = get_share_dir() / ".paca_session"
+                    session_file.write_text(new_session_id)
                 except Exception as e:
                     log.warning("Failed to save session ID to .paca_session: %s", e)
             except Exception as e:
@@ -379,7 +382,8 @@ To send a message starting with ! to the agent, use !! (e.g., !!echo)"""
                             )
                             # Save session ID to .paca_session for CLI tools
                             try:
-                                Path(".paca_session").write_text(session_id)
+                                session_file = get_share_dir() / ".paca_session"
+                                session_file.write_text(session_id)
                             except Exception as e:
                                 log.warning(
                                     "Failed to save session ID to .paca_session: %s", e
@@ -556,7 +560,8 @@ To send a message starting with ! to the agent, use !! (e.g., !!echo)"""
         # Save session ID to .paca_session for CLI tools
         if self.opencode_client.session_id:
             try:
-                Path(".paca_session").write_text(self.opencode_client.session_id)
+                session_file = get_share_dir() / ".paca_session"
+                session_file.write_text(self.opencode_client.session_id)
             except Exception as e:
                 log.warning("Failed to save session ID to .paca_session: %s", e)
 

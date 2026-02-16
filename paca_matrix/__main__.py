@@ -20,6 +20,7 @@ from nio.responses import ErrorResponse  # type: ignore
 from setproctitle import setproctitle
 
 from paca_matrix.bot import PacaBot
+from paca_matrix.utils import get_share_dir
 
 DEFAULT_MATRIX_HOMESERVER = "https://matrix.org"
 DEFAULT_BOT_NAME = "paca-bot"
@@ -46,7 +47,9 @@ def main() -> None:
 
     signal.signal(signal.SIGTERM, _signal_handler)
 
+    # Load .env files: local first, then share location (share overrides local)
     load_dotenv(find_dotenv(usecwd=True))
+    load_dotenv(get_share_dir() / ".env")
 
     opts = CliOpts.parse_args()
 
@@ -161,9 +164,10 @@ def run_opencode_attach(port: int, session_id: str | None) -> None:
 
     cmd = ["opencode", "attach", url]
 
-    if not session_id and Path(".paca_session").exists():
+    session_file = get_share_dir() / ".paca_session"
+    if not session_id and session_file.exists():
         try:
-            session_id = Path(".paca_session").read_text().strip()
+            session_id = session_file.read_text().strip()
         except Exception:
             pass
 
@@ -177,9 +181,10 @@ def run_opencode_web(port: int, session_id: str | None) -> None:
     """Open the web view for the opencode server."""
     url = f"http://127.0.0.1:{port}"
 
-    if not session_id and Path(".paca_session").exists():
+    session_file = get_share_dir() / ".paca_session"
+    if not session_id and session_file.exists():
         try:
-            session_id = Path(".paca_session").read_text().strip()
+            session_id = session_file.read_text().strip()
         except Exception:
             pass
 
@@ -334,7 +339,7 @@ async def matrix_login() -> None:
                 )
                 return
 
-        env_path = Path(".env")
+        env_path = get_share_dir() / ".env"
         # Use individual lines to avoid f-string injection issues
         env_lines = [
             f"PACAMATRIX_HOMESERVER={homeserver}",
@@ -579,9 +584,10 @@ class CliOpts:
 
         # Handle --resume flag: read session from .paca_session if it exists
         session_name = args.session
-        if args.resume and not session_name and Path(".paca_session").exists():
+        session_file = get_share_dir() / ".paca_session"
+        if args.resume and not session_name and session_file.exists():
             try:
-                session_name = Path(".paca_session").read_text().strip()
+                session_name = session_file.read_text().strip()
             except Exception:
                 pass
 

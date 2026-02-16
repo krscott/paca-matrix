@@ -145,3 +145,25 @@ parser.add_argument(
     help="Matrix homeserver URL (env: PACAMATRIX_HOMESERVER)",
 )
 ```
+
+### get_share_dir
+
+`get_share_dir()` in `paca_matrix/utils.py` provides a deterministic, repo-specific storage location:
+
+```python
+from pathlib import Path
+from paca_matrix.utils import get_share_dir
+
+# Get share directory for current repo
+share_dir = get_share_dir()
+
+# Get share directory for a specific path
+share_dir = get_share_dir(cwd=Path("/path/to/repo"))
+
+# Results in: ~/.local/share/paca/repos/<hash16>-<dirname>/
+```
+
+Used for storing:
+- `.env` - Matrix credentials
+- `.paca_session` - Session ID for resuming
+- `.nio_store/` - Matrix client persistent storage

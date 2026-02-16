@@ -81,5 +81,27 @@ To recreate this system:
 5. **Run**: `paca` to start the bot
 
 All state is ephemeral except:
-- Matrix credentials (stored in `~/.local/share/paca-matrix/`)
-- Session file (`.paca_session` in working directory)
+- Matrix credentials (stored in `~/.local/share/paca/repos/<hash16>-<dirname>/.env`)
+- Session file (`.paca_session` in share directory)
+- Matrix store (`.nio_store` in share directory)
+
+## Data Storage
+
+Files are stored in `~/.local/share/paca/repos/<hash16>-<dirname>/` where:
+- `<hash16>`: First 16 characters of SHA256(absolute repo path)
+- `<dirname>`: Directory name of the repo
+
+This provides a deterministic, unique location per repository that persists across working directory changes.
+
+Example:
+```
+Repo: /home/user/projects/my-app
+Share: ~/.local/share/paca/repos/a3f2b8d1e4c5a7b9-my-app/
+  ├── .env              # Matrix credentials
+  ├── .paca_session     # Current session ID
+  └── .nio_store/       # Matrix client store
+```
+
+Environment files are loaded in order:
+1. Local `.env` in working directory (if exists)
+2. Share directory `.env` (overrides local values)

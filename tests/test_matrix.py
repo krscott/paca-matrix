@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -18,26 +19,38 @@ def mock_async_client() -> Iterator[MagicMock]:
         yield client_instance
 
 
-def test_matrix_bot_initialization(mock_async_client: MagicMock) -> None:
+@pytest.fixture
+def mock_store_path(tmp_path: Path) -> Path:
+    """Provide a temporary store path for testing."""
+    return tmp_path / ".nio_store"
+
+
+def test_matrix_bot_initialization(
+    mock_async_client: MagicMock, mock_store_path: Path
+) -> None:
     """Test basic initialization."""
     bot = MatrixClient(
         homeserver="https://example.com",
         user_id="@bot:example.com",
         device_id="DEVICE123",
         access_token="test_token",
+        store_path=mock_store_path,
     )
 
     assert bot.client == mock_async_client
     assert bot.client.access_token == "test_token"
 
 
-async def test_send_message(mock_async_client: MagicMock) -> None:
+async def test_send_message(
+    mock_async_client: MagicMock, mock_store_path: Path
+) -> None:
     """Test sending a message calls the Matrix client."""
     bot = MatrixClient(
         homeserver="https://example.com",
         user_id="@bot:example.com",
         device_id="DEVICE123",
         access_token="test_token",
+        store_path=mock_store_path,
     )
 
     room = MagicMock()
@@ -52,13 +65,16 @@ async def test_send_message(mock_async_client: MagicMock) -> None:
     )
 
 
-async def test_send_empty_message(mock_async_client: MagicMock) -> None:
+async def test_send_empty_message(
+    mock_async_client: MagicMock, mock_store_path: Path
+) -> None:
     """Test that empty messages are not sent."""
     bot = MatrixClient(
         homeserver="https://example.com",
         user_id="@bot:example.com",
         device_id="DEVICE123",
         access_token="test_token",
+        store_path=mock_store_path,
     )
 
     room = MagicMock()
@@ -70,13 +86,14 @@ async def test_send_empty_message(mock_async_client: MagicMock) -> None:
     mock_async_client.room_send.assert_not_called()
 
 
-async def test_stop(mock_async_client: MagicMock) -> None:
+async def test_stop(mock_async_client: MagicMock, mock_store_path: Path) -> None:
     """Test that stop() closes the client."""
     bot = MatrixClient(
         homeserver="https://example.com",
         user_id="@bot:example.com",
         device_id="DEVICE123",
         access_token="test_token",
+        store_path=mock_store_path,
     )
 
     await bot.stop()

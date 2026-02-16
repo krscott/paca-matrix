@@ -3,6 +3,7 @@ import logging
 import ssl
 import time
 from collections.abc import Awaitable, Callable
+from pathlib import Path
 
 from nio import (
     AsyncClient,
@@ -16,6 +17,19 @@ from nio import (
 log = logging.getLogger(__name__)
 
 
+def _get_matrix_store_path() -> Path:
+    """Get the store path for Matrix client data.
+
+    Returns:
+        Path to the matrix store directory
+    """
+    from paca_matrix.utils import get_share_dir
+
+    store_path = get_share_dir() / ".nio_store"
+    store_path.mkdir(parents=True, exist_ok=True)
+    return store_path
+
+
 class MatrixClient:
     def __init__(
         self,
@@ -23,6 +37,7 @@ class MatrixClient:
         user_id: str,
         device_id: str,
         access_token: str,
+        store_path: str | Path | None = None,
     ) -> None:
         config = AsyncClientConfig(store_sync_tokens=True)
 
@@ -45,11 +60,18 @@ class MatrixClient:
             ssl_verify = True
             log.info("SSL verification enabled for homeserver: %s", homeserver)
 
+        # Determine store path
+        if store_path is None:
+            store_path = _get_matrix_store_path()
+        else:
+            store_path = Path(store_path)
+            store_path.mkdir(parents=True, exist_ok=True)
+
         self.client = AsyncClient(
             homeserver,
             user_id,
             device_id=device_id,
-            store_path=".nio_store",
+            store_path=str(store_path),
             config=config,
             ssl=ssl_verify,
         )
