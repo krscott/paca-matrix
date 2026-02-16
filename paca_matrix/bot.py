@@ -619,9 +619,6 @@ To send a message starting with ! to the agent, use !! (e.g., !!echo)"""
             except Exception as e:
                 log.warning("Failed to save session ID to .paca_session: %s", e)
 
-        # Start room authentication if needed
-        await self.start_authentication()
-
         await self.matrix_bot.setup_message_handler(self.message_callback)
 
         # Start the event listener as a background task

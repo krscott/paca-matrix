@@ -442,6 +442,100 @@ async def _get_available_models() -> list[str]:
     return models
 
 
+async def authenticate_room(
+    homeserver: str,
+    user_id: str,
+    device_id: str,
+    access_token: str,
+    reauth: bool,
+    per_repo: bool,
+) -> str:
+    """Authenticate a Matrix room before starting OpenCode.
+
+    Returns the authenticated room ID.
+    """
+    from nio import AsyncClient, AsyncClientConfig, RoomMessageText
+
+    from paca_matrix.room_auth import (
+        display_auth_code,
+        generate_auth_code,
+        save_room_to_env,
+    )
+    from paca_matrix.utils import get_global_share_dir, get_share_dir
+
+    # Generate and display auth code
+    auth_code = generate_auth_code()
+    display_auth_code(auth_code)
+
+    # Set up Matrix client
+    share_dir = get_share_dir()
+    config = AsyncClientConfig(store_sync_tokens=True)
+
+    # Determine SSL verification
+    import ssl
+
+    ssl_verify: bool | ssl.SSLContext
+    if homeserver.startswith("http://"):
+        ssl_verify = False
+    elif "127.0.0.1" in homeserver or "localhost" in homeserver:
+        ssl_verify = False
+    else:
+        ssl_verify = True
+
+    client = AsyncClient(
+        homeserver,
+        user_id,
+        device_id=device_id,
+        store_path=str(share_dir / ".nio_store"),
+        config=config,
+        ssl=ssl_verify,
+    )
+    client.access_token = access_token
+
+    authenticated_room_id: str | None = None
+
+    async def auth_callback(room: Any, event: Any) -> None:
+        nonlocal authenticated_room_id
+        from nio import RoomMessageText
+
+        if not isinstance(event, RoomMessageText):
+            return
+        if event.sender == client.user:
+            return
+
+        message_upper = event.body.strip().upper()
+        if message_upper == auth_code:
+            authenticated_room_id = room.room_id
+            log.info("Room %s authenticated successfully", room.room_id)
+            # Send confirmation
+            await client.room_send(
+                room_id=room.room_id,
+                message_type="m.room.message",
+                content={
+                    "msgtype": "m.text",
+                    "body": f"Room authenticated! This room ({room.room_id}) is now the authorized room.",
+                },
+            )
+
+    client.add_event_callback(auth_callback, RoomMessageText)
+
+    try:
+        # Do initial sync
+        await client.sync()
+
+        # Keep syncing until authenticated
+        while authenticated_room_id is None:
+            await client.sync(timeout=30000)
+
+        # Save the room ID
+        env_path = (get_share_dir() if per_repo else get_global_share_dir()) / ".env"
+        save_room_to_env(authenticated_room_id, env_path)
+
+        return authenticated_room_id
+    finally:
+        await client.close()
+
+
 async def run_bot(opts: "CliOpts") -> None:
     if (
         not opts.homeserver
@@ -478,6 +572,21 @@ async def run_bot(opts: "CliOpts") -> None:
             "".join(f"\n  - {m}" for m in available_models),
         )
 
+    # Handle room authentication before starting OpenCode server
+    # This prevents unnecessary OpenCode server startup if room auth is needed
+    room_id = opts.room_id
+    if room_id is None or opts.reauth_room:
+        # Need to authenticate room first
+        room_id = await authenticate_room(
+            homeserver=opts.homeserver,
+            user_id=opts.user_id,
+            device_id=opts.device_id,
+            access_token=opts.access_token,
+            reauth=opts.reauth_room,
+            per_repo=opts.per_repo,
+        )
+
+    # Now start OpenCode server if needed (after room authentication)
     opencode_server_url = opts.opencode_server_url
 
     if opencode_server_url is None:
@@ -494,8 +603,8 @@ async def run_bot(opts: "CliOpts") -> None:
         opencode_server_url=opencode_server_url,
         session_name=opts.session_name,
         model=opts.model,
-        room_id=opts.room_id,
-        reauth_room=opts.reauth_room,
+        room_id=room_id,
+        reauth_room=False,  # Already authenticated
         per_repo=opts.per_repo,
     )
     _bot_instance = bot
