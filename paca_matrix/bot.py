@@ -327,6 +327,7 @@ To send a message starting with ! to the agent, use !! (e.g., !!echo)"""
                 # Save session ID to .paca_session for CLI tools
                 try:
                     session_file = get_share_dir() / ".paca_session"
+                    session_file.parent.mkdir(parents=True, exist_ok=True)
                     session_file.write_text(new_session_id)
                 except Exception as e:
                     log.warning("Failed to save session ID to .paca_session: %s", e)
@@ -383,6 +384,7 @@ To send a message starting with ! to the agent, use !! (e.g., !!echo)"""
                             # Save session ID to .paca_session for CLI tools
                             try:
                                 session_file = get_share_dir() / ".paca_session"
+                                session_file.parent.mkdir(parents=True, exist_ok=True)
                                 session_file.write_text(session_id)
                             except Exception as e:
                                 log.warning(
@@ -561,6 +563,7 @@ To send a message starting with ! to the agent, use !! (e.g., !!echo)"""
         if self.opencode_client.session_id:
             try:
                 session_file = get_share_dir() / ".paca_session"
+                session_file.parent.mkdir(parents=True, exist_ok=True)
                 session_file.write_text(self.opencode_client.session_id)
             except Exception as e:
                 log.warning("Failed to save session ID to .paca_session: %s", e)

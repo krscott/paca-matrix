@@ -33,7 +33,8 @@ class TestGetShareDir:
         result = get_share_dir()
 
         assert result == expected_dir
-        assert result.exists()
+        # Directory is not created automatically, only the path is returned
+        assert not result.exists()
 
     def test_custom_cwd(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test that get_share_dir accepts a custom cwd parameter."""
@@ -56,7 +57,8 @@ class TestGetShareDir:
         result = get_share_dir(cwd=custom_dir)
 
         assert result == expected_dir
-        assert result.exists()
+        # Directory is not created automatically, only the path is returned
+        assert not result.exists()
 
     def test_hash_uniqueness(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test that different paths produce different hashes."""
@@ -98,8 +100,8 @@ class TestGetShareDir:
 
         assert result == expected_dir
 
-    def test_directory_created(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Test that the directory is created if it doesn't exist."""
+    def test_directory_not_created(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test that the directory is NOT created automatically."""
         home_dir = tmp_path / "home"
         home_dir.mkdir()
         monkeypatch.setattr(Path, "home", lambda: home_dir)
@@ -119,8 +121,8 @@ class TestGetShareDir:
 
         result = get_share_dir()
 
-        assert result.exists()
-        assert result.is_dir()
+        # Directory should still not exist - callers must create it when needed
+        assert not result.exists()
 
     def test_empty_dirname_fallback(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test that empty dirnames fallback to 'unnamed'."""

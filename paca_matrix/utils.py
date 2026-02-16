@@ -21,30 +21,25 @@ def get_global_share_dir() -> Path:
     Format: ~/.local/share/paca/
 
     Returns:
-        Path to the global share directory (creates it if needed)
+        Path to the global share directory (does not create it)
     """
-    share_dir = _get_xdg_data_home() / "paca"
-    share_dir.mkdir(parents=True, exist_ok=True)
-    return share_dir
+    return _get_xdg_data_home() / "paca"
 
 
 def get_share_dir(cwd: Path | None = None) -> Path:
     """Get deterministic share directory for current repo.
 
-    Creates a unique directory based on the repo's absolute path.
+    Creates a unique directory path based on the repo's absolute path.
     Format: ~/.local/share/paca/repos/<hash16>-<dirname>/
 
     Args:
         cwd: Optional path to use instead of current working directory
 
     Returns:
-        Path to the share directory (creates it if needed)
+        Path to the share directory (does not create it)
     """
     repo_path = (cwd or Path.cwd()).resolve()
     repo_hash = hashlib.sha256(str(repo_path).encode()).hexdigest()[:16]
     dir_name = repo_path.name or "unnamed"
 
-    share_dir = _get_xdg_data_home() / "paca" / "repos" / f"{repo_hash}-{dir_name}"
-    share_dir.mkdir(parents=True, exist_ok=True)
-
-    return share_dir
+    return _get_xdg_data_home() / "paca" / "repos" / f"{repo_hash}-{dir_name}"

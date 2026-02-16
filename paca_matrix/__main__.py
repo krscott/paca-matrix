@@ -401,6 +401,7 @@ async def matrix_login(per_repo: bool = False) -> None:
         ]
         env_content = "\n".join(env_lines) + "\n"
 
+        env_path.parent.mkdir(parents=True, exist_ok=True)
         env_path.write_text(env_content)
         os.chmod(env_path, 0o600)
         log.info("Login successful!")
