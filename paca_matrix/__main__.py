@@ -7,7 +7,6 @@ import logging.handlers
 import os
 import re
 import signal
-import subprocess
 import webbrowser
 from dataclasses import dataclass
 from pathlib import Path
@@ -176,7 +175,7 @@ async def stop_opencode_server(process: asyncio.subprocess.Process) -> None:
         await process.wait()
 
 
-def run_opencode_attach(port: int, session_id: str | None) -> None:
+async def run_opencode_attach(port: int, session_id: str | None) -> None:
     """Run opencode attach command to connect to the opencode server."""
     url = f"http://127.0.0.1:{port}"
     log.info("Attaching to opencode server at %s", url)
@@ -193,7 +192,8 @@ def run_opencode_attach(port: int, session_id: str | None) -> None:
     if session_id:
         cmd.extend(["-s", session_id])
 
-    subprocess.run(cmd)
+    process = await asyncio.create_subprocess_exec(*cmd)
+    await process.wait()
 
 
 def run_opencode_web(port: int, session_id: str | None) -> None:
@@ -260,7 +260,7 @@ async def run_opencode_client_with_server(opts: "CliOpts") -> None:
 
     try:
         # Run the attach command (blocks until client closes)
-        run_opencode_attach(port, opts.session_name)
+        await run_opencode_attach(port, opts.session_name)
     finally:
         # Stop the bot if we started it
         if bot_task:
