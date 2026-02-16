@@ -45,6 +45,7 @@ def make_paca_bot() -> PacaBot:
         device_id="DEVICE123",
         access_token="test_token",
         opencode_server_url="http://localhost:8080",
+        room_id="!test:example.com",  # Set a room_id so tests work
     )
     # Set start time to past so test events with future timestamps work
     bot._start_time_ms = int(time.time() * 1000) - 10000
@@ -117,15 +118,14 @@ async def test_message_callback_forwards_to_opencode(
 async def test_message_callback_updates_current_room(
     mock_matrix_client: MagicMock, mock_opencode_client: MagicMock
 ) -> None:
-    """Test that current_room is updated on each message."""
+    """Test that current_room is updated on each message from authenticated room."""
     from nio import RoomMessageText
 
     bot = make_paca_bot()
 
+    # Use the authenticated room ID
     room1 = MagicMock()
-    room1.room_id = "!room1:example.com"
-    room2 = MagicMock()
-    room2.room_id = "!room2:example.com"
+    room1.room_id = "!test:example.com"
 
     event1 = MagicMock(spec=RoomMessageText)
     event1.sender = "@user:example.com"
@@ -144,8 +144,8 @@ async def test_message_callback_updates_current_room(
     await bot.message_callback(room1, event1)
     assert bot.current_room == room1
 
-    await bot.message_callback(room2, event2)
-    assert bot.current_room == room2
+    await bot.message_callback(room1, event2)
+    assert bot.current_room == room1
 
 
 async def test_message_callback_skips_duplicate_events(
@@ -543,7 +543,7 @@ async def test_message_callback_bang_command(
     bot._start_time_ms = 0
 
     room = MagicMock()
-    room.room_id = "!room:example.com"
+    room.room_id = "!test:example.com"
 
     from nio import RoomMessageText
 
@@ -571,7 +571,7 @@ async def test_message_callback_normal_message_forwarded(
     bot._start_time_ms = 0
 
     room = MagicMock()
-    room.room_id = "!room:example.com"
+    room.room_id = "!test:example.com"
 
     from nio import RoomMessageText
 
@@ -598,7 +598,7 @@ async def test_message_callback_double_bang_forwarded(
     bot._start_time_ms = 0
 
     room = MagicMock()
-    room.room_id = "!room:example.com"
+    room.room_id = "!test:example.com"
 
     from nio import RoomMessageText
 
@@ -625,7 +625,7 @@ async def test_message_callback_unknown_command_error(
     bot._start_time_ms = 0
 
     room = MagicMock()
-    room.room_id = "!room:example.com"
+    room.room_id = "!test:example.com"
 
     from nio import RoomMessageText
 

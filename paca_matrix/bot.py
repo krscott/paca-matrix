@@ -10,7 +10,12 @@ from nio import Event, MatrixRoom, RoomMessageText
 
 from paca_matrix.matrix import MatrixClient
 from paca_matrix.opencode import OpencodeClient
-from paca_matrix.utils import get_share_dir
+from paca_matrix.room_auth import (
+    display_auth_code,
+    generate_auth_code,
+    save_room_to_env,
+)
+from paca_matrix.utils import get_global_share_dir, get_share_dir
 
 log = logging.getLogger(__name__)
 
@@ -50,6 +55,9 @@ class PacaBot:
         opencode_server_url: str,
         session_name: str | None = None,
         model: str | None = None,
+        room_id: str | None = None,
+        reauth_room: bool = False,
+        per_repo: bool = False,
     ) -> None:
         share_dir = get_share_dir()
         self.matrix_bot = MatrixClient(
@@ -73,6 +81,15 @@ class PacaBot:
         self._sent_message_ids: OrderedDict[str, None] = OrderedDict()
         self._pending_question: PendingQuestion | None = None
         self._should_exit: bool = False
+        # Room authentication
+        self.room_id = room_id
+        self._reauth_room = reauth_room
+        self._per_repo = per_repo
+        self._env_path = (
+            get_share_dir() if per_repo else get_global_share_dir()
+        ) / ".env"
+        self._auth_code: str | None = None
+        self._awaiting_auth = room_id is None or reauth_room
 
     def _add_seen_event_id(self, event_id: str) -> None:
         """Add an event ID to the seen set with LRU eviction."""
@@ -112,6 +129,12 @@ class PacaBot:
             await self.matrix_bot.send_message(self.current_room, message)
         await self.indicate_typing(False)
 
+    async def start_authentication(self) -> None:
+        """Start the room authentication process if needed."""
+        if self._awaiting_auth:
+            self._auth_code = generate_auth_code()
+            display_auth_code(self._auth_code)
+
     async def message_callback(self, room: MatrixRoom, event: Event) -> None:
         """Handle incoming Matrix messages by forwarding them to OpenCode.
 
@@ -140,6 +163,34 @@ class PacaBot:
 
         if event.event_id:
             self._add_seen_event_id(event.event_id)
+
+        # Check for authentication code if awaiting auth
+        if self._awaiting_auth:
+            message_upper = event.body.strip().upper()
+            if self._auth_code and message_upper == self._auth_code:
+                # Authenticate this room
+                self.room_id = room.room_id
+                self._awaiting_auth = False
+                self._auth_code = None
+                save_room_to_env(room.room_id, self._env_path)
+                await self.matrix_bot.send_message(
+                    room,
+                    f"Room authenticated! This room ({room.room_id}) is now the authorized room.",
+                )
+                log.info("Room %s authenticated successfully", room.room_id)
+                return
+            else:
+                # Ignore messages while awaiting auth (but log them)
+                log.debug(
+                    "Ignoring message from %s while awaiting authentication",
+                    room.room_id,
+                )
+                return
+
+        # Filter: only process messages from authenticated room
+        if self.room_id and room.room_id != self.room_id:
+            log.debug("Ignoring message from non-authenticated room %s", room.room_id)
+            return
 
         log.info("Received from %s: %s", event.sender, event.body[:100])
 
@@ -567,6 +618,9 @@ To send a message starting with ! to the agent, use !! (e.g., !!echo)"""
                 session_file.write_text(self.opencode_client.session_id)
             except Exception as e:
                 log.warning("Failed to save session ID to .paca_session: %s", e)
+
+        # Start room authentication if needed
+        await self.start_authentication()
 
         await self.matrix_bot.setup_message_handler(self.message_callback)
 

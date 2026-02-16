@@ -494,6 +494,9 @@ async def run_bot(opts: "CliOpts") -> None:
         opencode_server_url=opencode_server_url,
         session_name=opts.session_name,
         model=opts.model,
+        room_id=opts.room_id,
+        reauth_room=opts.reauth_room,
+        per_repo=opts.per_repo,
     )
     _bot_instance = bot
 
@@ -526,6 +529,8 @@ class CliOpts:
     opencode_web: bool
     resume: bool
     log_file: str | None
+    room_id: str | None
+    reauth_room: bool
 
     @staticmethod
     def parse_args() -> "CliOpts":
@@ -631,6 +636,18 @@ class CliOpts:
             env_var="PACAMATRIX_LOG_FILE",
             help="Path to log file (default: ~/.local/share/paca/logs/paca.log, env: PACAMATRIX_LOG_FILE)",
         )
+        parser.add_argument(
+            "--room-id",
+            required=False,
+            action=EnvAction,
+            env_var="PACAMATRIX_ROOM_ID",
+            help="Matrix room ID to listen in (env: PACAMATRIX_ROOM_ID)",
+        )
+        parser.add_argument(
+            "--reauth-room",
+            action="store_true",
+            help="Force re-authentication of the room (generates new auth code)",
+        )
 
         args = parser.parse_args()
 
@@ -676,6 +693,8 @@ class CliOpts:
             opencode_web=args.opencode_web,
             resume=args.resume,
             log_file=args.log_file,
+            room_id=args.room_id,
+            reauth_room=args.reauth_room,
         )
 
 
